@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.chrischall/remind-mcp",
+  "description": "Read Remind classes, chats and messages, and manage notification settings.",
+  "version": "0.0.0",
+  "repository": { "url": "https://github.com/chrischall/remind-mcp", "source": "github" },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@chrischall/remind-mcp",
+      "version": "0.0.0",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        { "name": "REMIND_COOKIE", "description": "Captured Cookie request header from a signed-in remind.com tab. Optional: the fetchproxy bridge captures it automatically.", "isSecret": true },
+        { "name": "REMIND_CSRF_TOKEN", "description": "Captured x-csrf-token request header value. Optional; paired with REMIND_COOKIE.", "isSecret": true },
+        { "name": "REMIND_WS_PORT", "description": "fetchproxy bridge concentrator port (default 37149).", "isRequired": false }
+      ]
+    }
+  ]
+}

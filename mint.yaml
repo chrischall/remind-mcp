@@ -1,0 +1,43 @@
+version: 1
+name: Remind
+slug: remind
+
+# Browser-bridge MCP: the one-time credential lift runs over the fetchproxy
+# bridge, so a hosted registration also needs `runtime: fly-shared`,
+# `bridge: true` and `bridgePortEnv: REMIND_WS_PORT`. Those are registration
+# fields set over the control API (PUT /api/v1/registrations/<id>) — the
+# manifest schema has no column for them. Everything after the bootstrap is a
+# plain server-side fetch, so tools work normally once a session is captured;
+# supplying REMIND_COOKIE + REMIND_CSRF_TOKEN as secrets skips the bridge
+# entirely and makes the registration serverless-safe.
+
+env:
+  - name: REMIND_COOKIE
+    secret: true
+    required: false
+    help: >-
+      Captured Cookie request header from a signed-in remind.com tab. Optional:
+      the fetchproxy bridge captures it automatically when absent.
+  - name: REMIND_CSRF_TOKEN
+    secret: true
+    required: false
+    help: >-
+      Captured x-csrf-token request header value. Optional; paired with
+      REMIND_COOKIE.
+  - name: REMIND_WS_PORT
+    required: false
+    help: fetchproxy bridge concentrator port (default 37149).
+
+state:
+  dataDir: true
+  reason: >-
+    The fetchproxy identity lives at $HOME/.fetchproxy/identity/remind-mcp.json
+    and the browser pair code derives from it. Without persistence every cold
+    start mints a fresh identity and re-prompts pairing in the user's browser.
+
+egress:
+  # The only host the Node process fetches is www.remind.com/graphql. The bare
+  # `remind.com` apex in src/session.ts is the fetchproxy *browser* domain
+  # declaration, not server egress, so it is deliberately not listed.
+  allow:
+    - www.remind.com

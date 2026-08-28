@@ -1,0 +1,8 @@
+{
+  "name": "remind-mcp",
+  "owner": { "name": "chrischall" },
+  "metadata": { "description": "Remind (remind.com) MCP server.", "version": "0.0.0" },
+  "plugins": [
+    { "name": "remind-mcp", "source": "./", "description": "Read Remind classes, chats and messages.", "version": "0.0.0" }
+  ]
+}
