@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.2.0...remind-mcp-v0.2.1) (2026-08-28)
+
+
+### Bug Fixes
+
+* move the node floor under compatibility so mcpb can pack the bundle ([#13](https://github.com/chrischall/remind-mcp/issues/13)) ([2be16cc](https://github.com/chrischall/remind-mcp/commit/2be16cc7ae263a85a28bd440a3498850dca2c5bf))
+
 ## [0.2.0](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.1.0...remind-mcp-v0.2.0) (2026-08-28)
 
 
