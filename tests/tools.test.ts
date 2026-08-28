@@ -23,6 +23,42 @@ describe('read tools', () => {
     expect(graphql.mock.calls[0][1]).toEqual({ query: null, lastCursor: null });
   });
 
+  it('remind_get_classes forwards the uuids', async () => {
+    const graphql = vi.fn(async () => ({ classes: [{ uuid: 'g1' }] }));
+    const h = await createTestHarness((s) => registerClassTools(s, stubClient(graphql)));
+    const out = parseToolResult(await h.callTool('remind_get_classes', { uuids: ['g1'] }));
+    expect(graphql.mock.calls[0][1]).toEqual({ uuids: ['g1'] });
+    expect(out).toEqual({ classes: [{ uuid: 'g1' }] });
+  });
+
+  it('remind_list_entities passes a supplied query and cursor through', async () => {
+    const graphql = vi.fn(async () => ({ navigationList: { items: [], cursor: 'c2' } }));
+    const h = await createTestHarness((s) => registerClassTools(s, stubClient(graphql)));
+    await h.callTool('remind_list_entities', { query: 'math', cursor: 'c1' });
+    expect(graphql.mock.calls[0][1]).toEqual({ query: 'math', lastCursor: 'c1' });
+  });
+
+  it('remind_list_chats coerces every absent filter to null', async () => {
+    const graphql = vi.fn(async () => ({ chatStreams: [] }));
+    const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)));
+    await h.callTool('remind_list_chats', {});
+    expect(graphql.mock.calls[0][1]).toEqual({ chatUuids: null, groupId: null, chatQuery: null });
+  });
+
+  it('remind_list_chats forwards every filter when supplied', async () => {
+    const graphql = vi.fn(async () => ({ chatStreams: [] }));
+    const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)));
+    await h.callTool('remind_list_chats', { uuids: ['c1'], class_id: 7, query: 'coach' });
+    expect(graphql.mock.calls[0][1]).toEqual({ chatUuids: ['c1'], groupId: 7, chatQuery: 'coach' });
+  });
+
+  it('remind_get_notification_settings returns the screen payload', async () => {
+    const graphql = vi.fn(async () => ({ accountNotificationsScreen: { devices: [] } }));
+    const h = await createTestHarness((s) => registerAccountTools(s, stubClient(graphql)));
+    const out = parseToolResult(await h.callTool('remind_get_notification_settings', {}));
+    expect(out).toEqual({ accountNotificationsScreen: { devices: [] } });
+  });
+
   it('remind_get_messages forwards the limit', async () => {
     const graphql = vi.fn(async () => ({ chatStreams: [] }));
     const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)));

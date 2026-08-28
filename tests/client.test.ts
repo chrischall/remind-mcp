@@ -95,3 +95,55 @@ describe('RemindClient.graphql', () => {
     await expect(client.graphql('{ me { uuid } }')).rejects.toThrow(/HTTP 502/);
   });
 });
+
+describe('bridge bootstrap', () => {
+  const jsonOk = () => new Response(JSON.stringify({ data: { me: { uuid: 'u1' } } }),
+    { status: 200, headers: { 'content-type': 'application/json' } });
+
+  it('lifts both headers off the transport and always closes it', async () => {
+    const close = vi.fn(async () => {});
+    const transportFactory = vi.fn(async () => ({
+      server: { captureRequestHeader: async ({ headerName }: { headerName: string }) =>
+        headerName === 'cookie' ? 'a=1' : 'tok' },
+      close,
+    }));
+    const fetchImpl = vi.fn(async () => jsonOk());
+    const client = new RemindClient({ fetchImpl: fetchImpl as never, transportFactory });
+    await client.graphql('{ me { uuid } }');
+
+    const headers = (fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1]
+      .headers as Record<string, string>;
+    expect(headers.cookie).toBe('a=1');
+    expect(headers['x-csrf-token']).toBe('tok');
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the transport even when the capture fails', async () => {
+    const close = vi.fn(async () => {});
+    const transportFactory = vi.fn(async () => ({
+      server: { captureRequestHeader: async () => { throw new Error('bridge down'); } },
+      close,
+    }));
+    const client = new RemindClient({ fetchImpl: vi.fn() as never, transportFactory });
+    await expect(client.graphql('{ me { uuid } }')).rejects.toThrow(/bridge down/);
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('prefers an env-supplied session and never touches the bridge', async () => {
+    process.env.REMIND_COOKIE = 'env=1';
+    process.env.REMIND_CSRF_TOKEN = 'envtok';
+    const transportFactory = vi.fn();
+    const fetchImpl = vi.fn(async () => jsonOk());
+    try {
+      const client = new RemindClient({ fetchImpl: fetchImpl as never, transportFactory: transportFactory as never });
+      await client.graphql('{ me { uuid } }');
+      expect(transportFactory).not.toHaveBeenCalled();
+      const headers = (fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1]
+        .headers as Record<string, string>;
+      expect(headers.cookie).toBe('env=1');
+    } finally {
+      delete process.env.REMIND_COOKIE;
+      delete process.env.REMIND_CSRF_TOKEN;
+    }
+  });
+});
