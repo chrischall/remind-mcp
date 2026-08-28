@@ -1,5 +1,9 @@
 import { McpToolError, truncateErrorMessage } from '@chrischall/mcp-utils';
-import { CookieSessionManager } from '@chrischall/mcp-utils/session';
+import {
+  CookieSessionManager,
+  createFileStatePersistence,
+  resolveStateFile,
+} from '@chrischall/mcp-utils/session';
 import {
   REMIND_ORIGIN,
   captureRemindHeaders,
@@ -51,6 +55,12 @@ export interface RemindClientOpts {
    * real capture logic. Ignored when {@link captureSession} is also given.
    */
   transportFactory?: () => Promise<{ server: HeaderCapturer; close: () => Promise<void> }>;
+  /**
+   * Where the captured session is cached between runs. Defaults to
+   * `$MCP_DATA_DIR`/`$HOME`; pass `null` to disable persistence entirely
+   * (tests, and anyone who would rather re-capture each time).
+   */
+  sessionFile?: string | null;
 }
 
 export class RemindClient {
@@ -67,6 +77,20 @@ export class RemindClient {
     this.sessions = new CookieSessionManager<RemindSession, GraphQLResponse>({
       login: async () => sessionFromEnv() ?? (await capture()),
       isExpired: (res) => isUnauthorized(res),
+      // Without this the bridge capture re-runs on every cold start, and that
+      // capture can only complete while the signed-in tab happens to make a
+      // /graphql request — so a hosted child restarting overnight would hang
+      // rather than reconnect. Cached, the browser is needed once.
+      persistence: opts.sessionFile === null ? undefined : createFileStatePersistence({
+        filePath:
+          opts.sessionFile ??
+          resolveStateFile({ envVar: 'REMIND_SESSION_FILE', fileName: 'session.json', subdir: '.remind-mcp' }),
+        validate: (raw) => {
+          const r = raw as { session?: Partial<RemindSession>; sessionAt?: number } | null;
+          if (!r?.session?.cookie || !r.session.csrfToken) return null;
+          return { session: r.session as RemindSession, sessionAt: r.sessionAt ?? Date.now() };
+        },
+      }),
     });
   }
 

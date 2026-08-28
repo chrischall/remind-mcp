@@ -34,9 +34,15 @@ extension and a signed-in tab), or supply them yourself:
 | `REMIND_COOKIE` | no | Captured `Cookie` request header. Skips the bridge when set with the next one. |
 | `REMIND_CSRF_TOKEN` | no | Captured `x-csrf-token` value. |
 | `REMIND_WS_PORT` | no | fetchproxy bridge concentrator port (default `37149`). |
+| `REMIND_SESSION_FILE` | no | Where the captured session is cached. Defaults to `$MCP_DATA_DIR`/`$HOME` under `.remind-mcp`. |
 
 The server boots without either, so a host's install-time `tools/list` probe succeeds; the
 error surfaces on the first tool call instead.
+
+**The browser is needed once.** A captured session is cached (mode `0600`) and reused across
+restarts, and every call after the bootstrap is a plain server-side fetch. This matters because
+the capture completes only while the signed-in tab is actually issuing a `/graphql` request — so
+without the cache, a restart would sit waiting unless you happened to be using Remind.
 
 ## Tools
 

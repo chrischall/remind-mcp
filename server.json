@@ -30,6 +30,11 @@
           "name": "REMIND_WS_PORT",
           "description": "fetchproxy bridge concentrator port (default 37149).",
           "isRequired": false
+        },
+        {
+          "name": "REMIND_SESSION_FILE",
+          "description": "Path to the cached session file. Defaults to MCP_DATA_DIR/HOME under .remind-mcp.",
+          "isRequired": false
         }
       ]
     }

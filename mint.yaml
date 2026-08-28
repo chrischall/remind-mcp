@@ -6,9 +6,16 @@ slug: remind
 # bridge, so a hosted registration also needs `runtime: fly-shared`,
 # `bridge: true` and `bridgePortEnv: REMIND_WS_PORT`. Those are registration
 # fields set over the control API (PUT /api/v1/registrations/<id>) — the
-# manifest schema has no column for them. Everything after the bootstrap is a
-# plain server-side fetch, so tools work normally once a session is captured;
-# supplying REMIND_COOKIE + REMIND_CSRF_TOKEN as secrets skips the bridge
+# manifest schema has no column for them.
+#
+# Only the BOOTSTRAP needs the browser. Once a session is captured it is cached
+# under the data dir, and every tool call is a plain server-side fetch — so a
+# restarted child does not need the browser again. That caching is load-bearing
+# here rather than an optimisation: the capture completes only while the
+# signed-in tab happens to issue a /graphql request, so a cold start that had to
+# re-capture would hang unless someone were actively using Remind.
+#
+# Supplying REMIND_COOKIE + REMIND_CSRF_TOKEN as secrets skips the bridge
 # entirely and makes the registration serverless-safe.
 
 env:
@@ -26,14 +33,24 @@ env:
       REMIND_COOKIE.
   - name: REMIND_WS_PORT
     required: false
-    help: fetchproxy bridge concentrator port (default 37149).
+    help: >-
+      fetchproxy bridge concentrator port (default 37149). A hosted bridged
+      registration has this injected per-registration via bridgePortEnv.
+  - name: REMIND_SESSION_FILE
+    required: false
+    help: >-
+      Path to the cached session file. Defaults to MCP_DATA_DIR (or HOME) under
+      .remind-mcp.
 
 state:
   dataDir: true
   reason: >-
-    The fetchproxy identity lives at $HOME/.fetchproxy/identity/remind-mcp.json
-    and the browser pair code derives from it. Without persistence every cold
-    start mints a fresh identity and re-prompts pairing in the user's browser.
+    Two things live here. The fetchproxy identity is at
+    $HOME/.fetchproxy/identity/remind-mcp.json and the browser pair code derives
+    from it, so without persistence every cold start mints a fresh identity and
+    re-prompts pairing. The captured Remind session is cached alongside it under
+    .remind-mcp/session.json (0600); without that, a restart re-runs the bridge
+    capture, which can only complete while a signed-in tab is issuing requests.
 
 egress:
   # The only host the Node process fetches is www.remind.com/graphql. The bare
