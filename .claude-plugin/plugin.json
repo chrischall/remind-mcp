@@ -1,8 +1,18 @@
 {
   "name": "remind-mcp",
   "description": "Read Remind classes, chats and messages, and manage notification settings.",
-  "version": "0.0.0",
-  "author": { "name": "chrischall" },
-  "mcpServers": { "remind": { "command": "npx", "args": ["-y", "@chrischall/remind-mcp"] } },
+  "version": "0.1.0",
+  "author": {
+    "name": "chrischall"
+  },
+  "mcpServers": {
+    "remind": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@chrischall/remind-mcp"
+      ]
+    }
+  },
   "skills": "./skills/"
 }
