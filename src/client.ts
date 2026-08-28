@@ -5,6 +5,7 @@ import {
   captureRemindHeaders,
   createRemindTransport,
   sessionFromEnv,
+  type HeaderCapturer,
   type RemindSession,
 } from './session.js';
 
@@ -38,13 +39,18 @@ export interface RemindClientOpts {
   fetchImpl?: Fetch;
   /** Injectable bridge bootstrap, so tests never construct a real transport. */
   captureSession?: () => Promise<RemindSession>;
+  /** Injectable transport factory — the seam the bridge bootstrap is tested through. */
+  transportFactory?: () => Promise<{ server: HeaderCapturer; close: () => Promise<void> }>;
 }
 
 export class RemindClient {
   private readonly fetchImpl: Fetch;
   private readonly sessions: CookieSessionManager<RemindSession, GraphQLResponse>;
 
+  private readonly transportFactory: NonNullable<RemindClientOpts['transportFactory']>;
+
   constructor(opts: RemindClientOpts = {}) {
+    this.transportFactory = opts.transportFactory ?? (() => createRemindTransport());
     // A bare `fetch` reference called as `this.fetchImpl(...)` binds the wrong
     // receiver and throws "Illegal invocation" on older undici. Wrap it.
     this.fetchImpl = opts.fetchImpl ?? ((input, init) => fetch(input, init));
@@ -62,7 +68,7 @@ export class RemindClient {
    * request that satisfied the first had already gone by.
    */
   private async bootstrapViaBridge(): Promise<RemindSession> {
-    const transport = await createRemindTransport();
+    const transport = await this.transportFactory();
     try {
       return await captureRemindHeaders(transport.server);
     } finally {
