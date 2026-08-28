@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.1.0...remind-mcp-v0.2.0) (2026-08-28)
+
+
+### Features
+
+* cache the captured session so the browser is needed only once ([#11](https://github.com/chrischall/remind-mcp/issues/11)) ([70815a0](https://github.com/chrischall/remind-mcp/commit/70815a05a7815414b00ed0951df230d69581eb39))
+
 ## 0.1.0 (2026-08-28)
 
 
