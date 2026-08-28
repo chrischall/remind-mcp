@@ -2,27 +2,69 @@
   "manifest_version": "0.2",
   "name": "remind-mcp",
   "display_name": "Remind",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Read Remind classes, chats and messages, and manage notification settings.",
-  "author": { "name": "chrischall" },
-  "repository": { "type": "git", "url": "https://github.com/chrischall/remind-mcp" },
+  "author": {
+    "name": "chrischall"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chrischall/remind-mcp"
+  },
   "license": "MIT",
   "server": {
     "type": "node",
     "entry_point": "dist/bundle.js",
-    "mcp_config": { "command": "node", "args": ["${__dirname}/dist/bundle.js"] }
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/bundle.js"
+      ]
+    }
   },
-  "runtimes": { "node": ">=22.5" },
+  "runtimes": {
+    "node": ">=22.5"
+  },
   "tools": [
-    { "name": "remind_me", "description": "Get the signed-in Remind account." },
-    { "name": "remind_get_notification_settings", "description": "Get notification preferences and delivery devices." },
-    { "name": "remind_set_notification_devices", "description": "Enable or disable notification delivery devices." },
-    { "name": "remind_list_entities", "description": "List classes and chats with unread counts." },
-    { "name": "remind_get_classes", "description": "Get full detail for classes by uuid." },
-    { "name": "remind_list_chats", "description": "List conversation streams and their permissions." },
-    { "name": "remind_get_messages", "description": "Read messages in chat streams." },
-    { "name": "remind_send_message", "description": "Send a message to a chat or class (confirm-gated)." },
-    { "name": "remind_graphql", "description": "Run a read-only GraphQL query against Remind." },
-    { "name": "remind_healthcheck", "description": "Verify the Remind session authenticates." }
+    {
+      "name": "remind_me",
+      "description": "Get the signed-in Remind account."
+    },
+    {
+      "name": "remind_get_notification_settings",
+      "description": "Get notification preferences and delivery devices."
+    },
+    {
+      "name": "remind_set_notification_devices",
+      "description": "Enable or disable notification delivery devices."
+    },
+    {
+      "name": "remind_list_entities",
+      "description": "List classes and chats with unread counts."
+    },
+    {
+      "name": "remind_get_classes",
+      "description": "Get full detail for classes by uuid."
+    },
+    {
+      "name": "remind_list_chats",
+      "description": "List conversation streams and their permissions."
+    },
+    {
+      "name": "remind_get_messages",
+      "description": "Read messages in chat streams."
+    },
+    {
+      "name": "remind_send_message",
+      "description": "Send a message to a chat or class (confirm-gated)."
+    },
+    {
+      "name": "remind_graphql",
+      "description": "Run a read-only GraphQL query against Remind."
+    },
+    {
+      "name": "remind_healthcheck",
+      "description": "Verify the Remind session authenticates."
+    }
   ]
 }
