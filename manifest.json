@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/anthropics/dxt/main/dist/mcpb-manifest.schema.json",
   "manifest_version": "0.2",
   "name": "remind-mcp",
   "display_name": "Remind",
@@ -21,9 +22,6 @@
         "${__dirname}/dist/bundle.js"
       ]
     }
-  },
-  "runtimes": {
-    "node": ">=22.5"
   },
   "tools": [
     {
@@ -66,5 +64,15 @@
       "name": "remind_healthcheck",
       "description": "Verify the Remind session authenticates."
     }
-  ]
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=22.5.0"
+    }
+  }
 }
