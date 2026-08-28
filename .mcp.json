@@ -2,11 +2,15 @@
   "mcpServers": {
     "remind": {
       "command": "npx",
-      "args": ["-y", "@chrischall/remind-mcp"],
+      "args": [
+        "-y",
+        "@chrischall/remind-mcp"
+      ],
       "env": {
         "REMIND_COOKIE": "",
         "REMIND_CSRF_TOKEN": "",
-        "REMIND_WS_PORT": "37149"
+        "REMIND_WS_PORT": "37149",
+        "REMIND_SESSION_FILE": ""
       }
     }
   }
