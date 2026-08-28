@@ -22,6 +22,39 @@ describe('package.json', () => {
   });
 });
 
+describe('manifest.json is packable by mcpb', () => {
+  // The mcpb manifest schema sets `additionalProperties: false`, so ONE stray
+  // top-level key makes `mcpb pack` fail outright. That failure is close to
+  // invisible in CI — the publish step still reports success and still prints
+  // "Built <name>.mcpb" — so remind-mcp and angi-mcp both shipped releases with
+  // no .mcpb attached. Keys are from mcpb 2.1.2's own
+  // dist/mcpb-manifest-v0.2.schema.json, not hand-written.
+  const ALLOWED = new Set([
+    '$schema', 'dxt_version', 'manifest_version', 'name', 'display_name', 'version',
+    'description', 'long_description', 'author', 'repository', 'homepage', 'documentation',
+    'support', 'icon', 'screenshots', 'server', 'tools', 'tools_generated', 'prompts',
+    'prompts_generated', 'keywords', 'license', 'privacy_policies', 'compatibility', 'user_config',
+  ]);
+  const manifest = read('manifest.json') as Record<string, unknown>;
+
+  it('has no top-level key the schema would reject', () => {
+    expect(Object.keys(manifest).filter((k) => !ALLOWED.has(k))).toEqual([]);
+  });
+
+  it('declares its node floor under compatibility, not at the top level', () => {
+    // `runtimes` at the top level is the exact key that broke this repo.
+    expect(manifest).not.toHaveProperty('runtimes');
+    const compat = manifest.compatibility as { runtimes?: { node?: string } } | undefined;
+    expect(compat?.runtimes?.node).toMatch(/^>=/);
+  });
+
+  it('keeps the node floor on an LTS so LTS users can install', () => {
+    const node = (manifest.compatibility as { runtimes: { node: string } }).runtimes.node;
+    const major = Number(node.replace(/^\D*/, '').split('.')[0]);
+    expect(major).toBeLessThanOrEqual(22);
+  });
+});
+
 describe('version consistency across manifests', () => {
   it('all manifests carry package.json version', () => {
     expect(read('manifest.json').version).toBe(pkg.version);
