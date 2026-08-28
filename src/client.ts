@@ -37,16 +37,25 @@ type Fetch = typeof globalThis.fetch;
 export interface RemindClientOpts {
   /** Injectable for tests. Defaults to a receiver-safe wrapper around global fetch. */
   fetchImpl?: Fetch;
-  /** Injectable bridge bootstrap, so tests never construct a real transport. */
+  /**
+   * Replace the whole bridge bootstrap: return a session directly and no
+   * transport is ever constructed.
+   *
+   * **Takes precedence over {@link transportFactory}** — supply one or the
+   * other, not both. This one short-circuits the bootstrap entirely, so a
+   * `transportFactory` passed alongside it is never reached.
+   */
   captureSession?: () => Promise<RemindSession>;
-  /** Injectable transport factory — the seam the bridge bootstrap is tested through. */
+  /**
+   * Replace only the transport the bootstrap lifts headers from, keeping the
+   * real capture logic. Ignored when {@link captureSession} is also given.
+   */
   transportFactory?: () => Promise<{ server: HeaderCapturer; close: () => Promise<void> }>;
 }
 
 export class RemindClient {
   private readonly fetchImpl: Fetch;
   private readonly sessions: CookieSessionManager<RemindSession, GraphQLResponse>;
-
   private readonly transportFactory: NonNullable<RemindClientOpts['transportFactory']>;
 
   constructor(opts: RemindClientOpts = {}) {
