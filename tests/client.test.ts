@@ -147,3 +147,20 @@ describe('bridge bootstrap', () => {
     }
   });
 });
+
+describe('injection seam precedence', () => {
+  it('captureSession wins and the transportFactory is never constructed', async () => {
+    // Documented precedence: captureSession short-circuits the bootstrap, so a
+    // transportFactory passed alongside it must not be reached.
+    const transportFactory = vi.fn();
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ data: { me: { uuid: 'u1' } } }),
+      { status: 200, headers: { 'content-type': 'application/json' } }));
+    const client = new RemindClient({
+      fetchImpl: fetchImpl as never,
+      captureSession: capture,
+      transportFactory: transportFactory as never,
+    });
+    await client.graphql('{ me { uuid } }');
+    expect(transportFactory).not.toHaveBeenCalled();
+  });
+});
