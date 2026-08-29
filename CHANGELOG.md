@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.2.1...remind-mcp-v0.3.0) (2026-08-29)
+
+
+### Features
+
+* **deps:** take @fetchproxy/server 2.2.0 so the concentrator can bind its sandbox address ([#15](https://github.com/chrischall/remind-mcp/issues/15)) ([2cd3de4](https://github.com/chrischall/remind-mcp/commit/2cd3de46e0fdccb1475a46c3cc8c388a7c0e186d))
+
 ## [0.2.1](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.2.0...remind-mcp-v0.2.1) (2026-08-28)
 
 
