@@ -1,6 +1,6 @@
 {
   "name": "@chrischall/remind-mcp",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "MCP server for Remind (remind.com) — classes, chats, messages and notification settings.",
   "type": "module",
   "bin": {
