@@ -3,7 +3,7 @@
   "manifest_version": "0.2",
   "name": "remind-mcp",
   "display_name": "Remind",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Read Remind classes, chats and messages, and manage notification settings.",
   "author": {
     "name": "chrischall"
