@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { textResult, toolAnnotations, schemaConfirm } from '@chrischall/mcp-utils';
+import { minifiedResult, schemaConfirm, toolAnnotations } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
 import { CHAT_MESSAGES, CHAT_STREAMS, PUT_MESSAGE } from '../queries.js';
 
@@ -19,7 +19,7 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
       },
     },
     async ({ uuids, class_id, query }) =>
-      textResult(
+      minifiedResult(
         await client.graphql(CHAT_STREAMS, {
           chatUuids: uuids ?? null,
           groupId: class_id ?? null,
@@ -41,7 +41,7 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
         limit: z.number().int().min(1).max(200).default(25).describe('Max non-gap messages per stream.'),
       },
     },
-    async ({ uuids, limit }) => textResult(await client.graphql(CHAT_MESSAGES, { chatUuids: uuids, limit })),
+    async ({ uuids, limit }) => minifiedResult(await client.graphql(CHAT_MESSAGES, { chatUuids: uuids, limit })),
   );
 
   server.registerTool(
@@ -69,13 +69,13 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
         message: { body, urgent },
       };
       if (!confirm) {
-        return textResult({
+        return minifiedResult({
           dryRun: true,
           wouldSend: { mutation: 'putMessage', input },
           warning: 'This delivers to real recipients and cannot be unsent. Re-run with confirm: true.',
         });
       }
-      return textResult(await client.graphql(PUT_MESSAGE, { input }));
+      return minifiedResult(await client.graphql(PUT_MESSAGE, { input }));
     },
   );
 }

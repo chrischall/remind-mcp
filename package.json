@@ -1,7 +1,7 @@
 {
   "name": "@chrischall/remind-mcp",
   "version": "0.3.0",
-  "description": "MCP server for Remind (remind.com) — classes, chats, messages and notification settings.",
+  "description": "MCP server for Remind (remind.com) \u2014 classes, chats, messages and notification settings.",
   "type": "module",
   "bin": {
     "remind-mcp": "dist/index.js"
@@ -37,7 +37,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@chrischall/mcp-utils": "^0.19.3",
+    "@chrischall/mcp-utils": "^0.23.0",
     "@fetchproxy/server": "^2.2.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "dotenv": "^17.4.2",

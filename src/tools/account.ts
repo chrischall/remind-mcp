@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { textResult, toolAnnotations, schemaConfirm, McpToolError } from '@chrischall/mcp-utils';
+import { McpToolError, minifiedResult, schemaConfirm, toolAnnotations } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
 import { ME, NOTIFICATION_SETTINGS, UPDATE_NOTIFICATIONS } from '../queries.js';
 
@@ -13,7 +13,7 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
       annotations: toolAnnotations({ title: 'Remind account', readOnly: true, idempotent: true }),
       inputSchema: {},
     },
-    async () => textResult(await client.graphql(ME)),
+    async () => minifiedResult(await client.graphql(ME)),
   );
 
   server.registerTool(
@@ -26,7 +26,7 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
       annotations: toolAnnotations({ title: 'Remind notification settings', readOnly: true, idempotent: true }),
       inputSchema: {},
     },
-    async () => textResult(await client.graphql(NOTIFICATION_SETTINGS)),
+    async () => minifiedResult(await client.graphql(NOTIFICATION_SETTINGS)),
   );
 
   server.registerTool(
@@ -50,7 +50,7 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
         throw new McpToolError('Nothing to do: pass at least one device id in `enable` or `disable`.');
       }
       if (!confirm) {
-        return textResult({
+        return minifiedResult({
           dryRun: true,
           wouldSend: { mutation: 'updateAccountNotificationsScreen', input },
           note: 'Re-run with confirm: true to apply.',
@@ -62,7 +62,7 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
         accountNotificationsScreen: { devices: { id: number; isEnabled: boolean }[] };
       }>(NOTIFICATION_SETTINGS);
       const touched = new Set([...(enable ?? []), ...(disable ?? [])]);
-      return textResult({
+      return minifiedResult({
         applied: input,
         verifiedState: after.accountNotificationsScreen.devices
           .filter((d) => touched.has(d.id))

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { textResult, toolAnnotations } from '@chrischall/mcp-utils';
+import { minifiedResult, toolAnnotations } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
 import { CLASSES, NAVIGATION_LIST } from '../queries.js';
 
@@ -19,7 +19,7 @@ export function registerClassTools(server: McpServer, client: RemindClient): voi
       },
     },
     async ({ query, cursor }) =>
-      textResult(await client.graphql(NAVIGATION_LIST, { query: query ?? null, lastCursor: cursor ?? null })),
+      minifiedResult(await client.graphql(NAVIGATION_LIST, { query: query ?? null, lastCursor: cursor ?? null })),
   );
 
   server.registerTool(
@@ -33,6 +33,6 @@ export function registerClassTools(server: McpServer, client: RemindClient): voi
         uuids: z.array(z.string()).min(1).describe('Class uuids, from remind_list_entities.'),
       },
     },
-    async ({ uuids }) => textResult(await client.graphql(CLASSES, { uuids })),
+    async ({ uuids }) => minifiedResult(await client.graphql(CLASSES, { uuids })),
   );
 }
