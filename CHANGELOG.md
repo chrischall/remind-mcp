@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.3.0...remind-mcp-v0.4.0) (2026-09-04)
+
+
+### Features
+
+* **tools:** minify every response ([#28](https://github.com/chrischall/remind-mcp/issues/28)) ([9487a47](https://github.com/chrischall/remind-mcp/commit/9487a47ba4981e2300ad12dd56182431b54717f9))
+
 ## [0.3.0](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.2.1...remind-mcp-v0.3.0) (2026-08-29)
 
 
