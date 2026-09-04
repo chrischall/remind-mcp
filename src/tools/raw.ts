@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { textResult, toolAnnotations, McpToolError } from '@chrischall/mcp-utils';
+import { McpToolError, minifiedResult, toolAnnotations } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
 import { ME } from '../queries.js';
 
@@ -28,7 +28,7 @@ export function registerRawTools(server: McpServer, client: RemindClient): void 
           hint: 'Use remind_send_message or remind_set_notification_devices, which are confirm-gated.',
         });
       }
-      return textResult(await client.graphql(query, variables ?? {}));
+      return minifiedResult(await client.graphql(query, variables ?? {}));
     },
   );
 
@@ -43,7 +43,7 @@ export function registerRawTools(server: McpServer, client: RemindClient): void 
     },
     async () => {
       const data = await client.graphql<{ me: { uuid: string } | null }>(ME);
-      return textResult({ ok: Boolean(data.me?.uuid), account: data.me });
+      return minifiedResult({ ok: Boolean(data.me?.uuid), account: data.me });
     },
   );
 }
