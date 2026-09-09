@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.4.0...remind-mcp-v0.4.1) (2026-09-09)
+
+
+### Bug Fixes
+
+* **deps:** require @fetchproxy/server ^2.7.0, the first that reads FETCHPROXY_IDENTITY_DIR ([#35](https://github.com/chrischall/remind-mcp/issues/35)) ([daa71b2](https://github.com/chrischall/remind-mcp/commit/daa71b2e095139c539b9df4a44589bf9d6407239))
+
 ## [0.4.0](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.3.0...remind-mcp-v0.4.0) (2026-09-04)
 
 
