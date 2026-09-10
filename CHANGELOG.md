@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.3](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.4.2...remind-mcp-v0.4.3) (2026-09-10)
+
+
+### Bug Fixes
+
+* declare the capture window so the useful error is the one that arrives ([#41](https://github.com/chrischall/remind-mcp/issues/41)) ([4575ed2](https://github.com/chrischall/remind-mcp/commit/4575ed2075b8501a91adb8a71c30533c24e6e4c1))
+
 ## [0.4.2](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.4.1...remind-mcp-v0.4.2) (2026-09-10)
 
 
