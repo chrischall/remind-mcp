@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.2](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.4.1...remind-mcp-v0.4.2) (2026-09-10)
+
+
+### Bug Fixes
+
+* **deps:** @fetchproxy/server 2.10.0 and @chrischall/mcp-utils 0.26.1 ([#39](https://github.com/chrischall/remind-mcp/issues/39)) ([61c7233](https://github.com/chrischall/remind-mcp/commit/61c72333951fb2c69b06ccc924de9e4a906e2259))
+* **deps:** declare the peer floors mcp-utils 0.26.1 requires ([#40](https://github.com/chrischall/remind-mcp/issues/40)) ([1a66ef7](https://github.com/chrischall/remind-mcp/commit/1a66ef72f1bec45c6013e32fe2eb605da3b5933c))
+* **deps:** take @fetchproxy/server 2.9.1 so a pairing prompt survives ([#37](https://github.com/chrischall/remind-mcp/issues/37)) ([ca5db78](https://github.com/chrischall/remind-mcp/commit/ca5db78ae59952917ee316d8da6a442b9285b6d8))
+
 ## [0.4.1](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.4.0...remind-mcp-v0.4.1) (2026-09-09)
 
 
