@@ -51,8 +51,10 @@ export function sessionFromCapture(captured: CapturedSession): RemindSession {
     const missing = [!cookie && 'cookie', !csrfToken && 'x-csrf-token'].filter(Boolean).join(' and ');
     throw new McpToolError(`Remind bootstrap captured no ${missing} header.`, {
       hint:
-        `Open ${REMIND_ORIGIN} in Chrome, make sure you are signed in, then retry — ` +
-        'the capture completes on the next request the page makes, so a reload feeds it.',
+        `Open ${REMIND_ORIGIN} in Chrome and make sure you are signed in, then retry — ` +
+        'and reload the tab WHILE the retry is running. The capture completes on the next ' +
+        'request the page makes and only listens for the duration of the call, so a reload ' +
+        'that finished beforehand is not seen.',
     });
   }
   return { cookie, csrfToken, capturedAt: new Date().toISOString() };
@@ -106,6 +108,17 @@ export async function createRemindTransport() {
     serverName: 'remind-mcp',
     version: VERSION,
     port: readPortEnv('REMIND_WS_PORT', DEFAULT_WS_PORT),
+    // The captures below pass no per-call `timeoutMs`, so they run for the
+    // EXTENSION's own 30 s default — which tied exactly with the transport's
+    // 30 s deadline. The transport's timer starts first, since its frame has
+    // yet to travel, so it won that tie essentially always and the extension's
+    // rejection was lost. That rejection is the one that explains itself; what
+    // arrived instead was a bare "did not respond within 30000ms".
+    //
+    // Declaring the window we rely on lets the transport raise its deadline
+    // clear of it, so the side that can explain the failure is the side that
+    // answers (chrischall/mcp-utils#232).
+    captureWindowMs: 30_000,
   });
 }
 
