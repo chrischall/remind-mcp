@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.4](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.4.3...remind-mcp-v0.4.4) (2026-09-11)
+
+
+### Bug Fixes
+
+* **deps:** @fetchproxy/server 2.11.3, so the hosted extension pin persists ([#44](https://github.com/chrischall/remind-mcp/issues/44)) ([0cbaa9c](https://github.com/chrischall/remind-mcp/commit/0cbaa9c96ed09dd063ebf7cce50a67ee7a94d5d1))
+
 ## [0.4.3](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.4.2...remind-mcp-v0.4.3) (2026-09-10)
 
 
