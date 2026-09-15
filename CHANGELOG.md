@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.5](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.4.4...remind-mcp-v0.4.5) (2026-09-15)
+
+
+### Bug Fixes
+
+* **deps:** @fetchproxy/server 3.0.1 — capped peer frames, logged load drops, atomic identity writes ([#47](https://github.com/chrischall/remind-mcp/issues/47)) ([9cfa831](https://github.com/chrischall/remind-mcp/commit/9cfa831d96c8f4cc51ecbb70b2fb053e02734b9a))
+
 ## [0.4.4](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.4.3...remind-mcp-v0.4.4) (2026-09-14)
 
 
