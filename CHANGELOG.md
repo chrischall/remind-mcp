@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.0.0...remind-mcp-v1.1.0) (2026-09-19)
+
+
+### Features
+
+* **deps:** take mcp-utils 1.0.0 for the serveStdio boot ([#58](https://github.com/chrischall/remind-mcp/issues/58)) ([5e7a34c](https://github.com/chrischall/remind-mcp/commit/5e7a34c8562d524fd3a7dc00e415f87593eb4cc5))
+
 ## [1.0.0](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.4.5...remind-mcp-v1.0.0) (2026-09-19)
 
 
