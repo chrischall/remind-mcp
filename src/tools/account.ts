@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer } from '@modelcontextprotocol/server';
 import { McpToolError, minifiedResult, schemaConfirm, toolAnnotations } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
 import { ME, NOTIFICATION_SETTINGS, UPDATE_NOTIFICATIONS } from '../queries.js';
@@ -11,7 +11,7 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
       description:
         'Get the signed-in Remind account: uuid, name, email, locale, admin/child flags and sign-in count.',
       annotations: toolAnnotations({ title: 'Remind account', readOnly: true, idempotent: true }),
-      inputSchema: {},
+      inputSchema: z.object({}),
     },
     async () => minifiedResult(await client.graphql(ME)),
   );
@@ -24,7 +24,7 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
         'delivery device (email, sms, apns) with its enabled state. The `canManage*` flags say which ' +
         'preferences this account is actually allowed to change — a subscriber account cannot change most.',
       annotations: toolAnnotations({ title: 'Remind notification settings', readOnly: true, idempotent: true }),
-      inputSchema: {},
+      inputSchema: z.object({}),
     },
     async () => minifiedResult(await client.graphql(NOTIFICATION_SETTINGS)),
   );
@@ -36,11 +36,11 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
         'Enable or disable notification delivery devices by id (from remind_get_notification_settings). ' +
         'Without confirm:true this makes NO network call and returns a dry-run preview of the exact mutation input.',
       annotations: toolAnnotations({ title: 'Remind set notification devices', readOnly: false }),
-      inputSchema: {
+      inputSchema: z.object({
         enable: z.array(z.number().int()).optional().describe('Device ids to enable.'),
         disable: z.array(z.number().int()).optional().describe('Device ids to disable.'),
         confirm: schemaConfirm,
-      },
+      }),
     },
     async ({ enable, disable, confirm }) => {
       const input: Record<string, number[]> = {};
