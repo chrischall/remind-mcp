@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.4.5...remind-mcp-v1.0.0) (2026-09-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* **mcp:** migrate server to SDK v2 ([#53](https://github.com/chrischall/remind-mcp/issues/53))
+
+### Features
+
+* **mcp:** migrate server to SDK v2 ([#53](https://github.com/chrischall/remind-mcp/issues/53)) ([b049c6c](https://github.com/chrischall/remind-mcp/commit/b049c6cf5bbcfa3fd7463e07320ea15f30a28ca4))
+
 ## [0.4.5](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v0.4.4...remind-mcp-v0.4.5) (2026-09-15)
 
 
