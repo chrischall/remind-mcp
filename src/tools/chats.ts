@@ -51,7 +51,7 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
         'Send a message to a chat stream or class. Delivers to real people and CANNOT be unsent, so it is ' +
         'confirm-gated: without confirm:true it makes NO network call and returns a dry-run preview of the ' +
         'exact payload. Check `permissions.canSend` on the target first (remind_list_chats).',
-      annotations: toolAnnotations({ title: 'Remind send message', readOnly: false }),
+      annotations: toolAnnotations({ title: 'Remind send message', readOnly: false, destructive: true }),
       inputSchema: z.object({
         recipient_uuid: z.string().describe('Chat stream uuid, or class uuid.'),
         recipient_type: z
