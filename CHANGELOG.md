@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.1.0...remind-mcp-v1.1.1) (2026-09-21)
+
+
+### Bug Fixes
+
+* **tools:** say which writes are destructive ([#60](https://github.com/chrischall/remind-mcp/issues/60)) ([aa761b8](https://github.com/chrischall/remind-mcp/commit/aa761b80774764317b0dfbb82459b2acc7ff7b11))
+
 ## [1.1.0](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.0.0...remind-mcp-v1.1.0) (2026-09-19)
 
 
