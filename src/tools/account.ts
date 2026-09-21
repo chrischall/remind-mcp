@@ -35,7 +35,7 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
       description:
         'Enable or disable notification delivery devices by id (from remind_get_notification_settings). ' +
         'Without confirm:true this makes NO network call and returns a dry-run preview of the exact mutation input.',
-      annotations: toolAnnotations({ title: 'Remind set notification devices', readOnly: false }),
+      annotations: toolAnnotations({ title: 'Remind set notification devices', readOnly: false, destructive: false }),
       inputSchema: z.object({
         enable: z.array(z.number().int()).optional().describe('Device ids to enable.'),
         disable: z.array(z.number().int()).optional().describe('Device ids to disable.'),
