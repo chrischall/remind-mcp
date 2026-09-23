@@ -1,8 +1,15 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/server';
-import { minifiedResult, schemaConfirm, toolAnnotations } from '@chrischall/mcp-utils';
+import { McpToolError, minifiedResult, schemaConfirm, toolAnnotations } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
 import { CHAT_MESSAGES, CHAT_STREAMS, PUT_MESSAGE } from '../queries.js';
+
+interface PutMessageResult {
+  putMessage: {
+    error: { __typename?: string } | null;
+    messages: unknown[] | null;
+  } | null;
+}
 
 export function registerChatTools(server: McpServer, client: RemindClient): void {
   server.registerTool(
@@ -75,7 +82,24 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
           warning: 'This delivers to real recipients and cannot be unsent. Re-run with confirm: true.',
         });
       }
-      return minifiedResult(await client.graphql(PUT_MESSAGE, { input }));
+      // A refused send (canSend=false, unknown recipient, blocked…) comes back as
+      // HTTP 200 data with `putMessage.error` populated, not as GraphQL
+      // `errors`, so the client does not throw on it. Surface it as a tool
+      // error rather than a payload that reads like a completed send.
+      const data = await client.graphql<PutMessageResult>(PUT_MESSAGE, { input });
+      const error = data.putMessage?.error;
+      if (error) {
+        throw new McpToolError(`Remind refused the message: ${error.__typename ?? 'unknown error'}.`, {
+          hint: 'Nothing was sent. Check permissions.canSend on the target via remind_list_chats.',
+        });
+      }
+      const messages = data.putMessage?.messages ?? [];
+      if (messages.length === 0) {
+        throw new McpToolError('Remind accepted the request but reported no message sent.', {
+          hint: 'Check the chat with remind_get_messages before retrying, so the message is not sent twice.',
+        });
+      }
+      return minifiedResult({ sent: true, messages });
     },
   );
 }

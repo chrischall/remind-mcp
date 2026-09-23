@@ -83,10 +83,33 @@ describe('confirm-gated writes', () => {
   });
 
   it('remind_send_message sends only with confirm:true', async () => {
-    const graphql = vi.fn(async () => ({ putMessage: { error: null } }));
+    const graphql = vi.fn(async () => ({ putMessage: { error: null, messages: [{ __typename: 'MessageItem' }] } }));
     const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)));
     await h.callTool('remind_send_message', { recipient_uuid: 'c1', body: 'hi', confirm: true });
     expect(graphql).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['a populated error', { putMessage: { error: { __typename: 'CannotSendError' }, messages: null } }, /CannotSendError/],
+    ['no messages', { putMessage: { error: null, messages: [] } }, /no message/i],
+    ['a null payload', { putMessage: null }, /no message/i],
+  ])('remind_send_message reports a failed send (%s) as an error', async (_label, payload, pattern) => {
+    const graphql = vi.fn(async () => payload);
+    const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)));
+    const res = await h.callTool('remind_send_message', { recipient_uuid: 'c1', body: 'hi', confirm: true });
+    expect(res.isError).toBe(true);
+    expect(JSON.stringify(res.content)).toMatch(pattern);
+  });
+
+  it('remind_send_message reports success with the sent messages', async () => {
+    const graphql = vi.fn(async () => ({ putMessage: { error: null, messages: [{ __typename: 'MessageItem' }] } }));
+    const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)));
+    const res = await h.callTool('remind_send_message', { recipient_uuid: 'c1', body: 'hi', confirm: true });
+    expect(res.isError).toBeFalsy();
+    expect(parseToolResult<{ sent: boolean; messages: unknown[] }>(res)).toEqual({
+      sent: true,
+      messages: [{ __typename: 'MessageItem' }],
+    });
   });
 
   it('remind_set_notification_devices previews without calling', async () => {
