@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.2](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.1.1...remind-mcp-v1.1.2) (2026-09-23)
+
+
+### Bug Fixes
+
+* **deps:** require zod ^4.6.5 to match @chrischall/mcp-utils 2.4.0 ([#64](https://github.com/chrischall/remind-mcp/issues/64)) ([c456321](https://github.com/chrischall/remind-mcp/commit/c456321d39ad5bfeeafb4fc7408e2170e016186a))
+* **deps:** upgrade @chrischall/mcp-utils to 2.4.0 and @fetchproxy/* to 3.2.0 ([#62](https://github.com/chrischall/remind-mcp/issues/62)) ([c69dbae](https://github.com/chrischall/remind-mcp/commit/c69dbae552305cc22def7e700dfb894e95e119d5))
+
 ## [1.1.1](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.1.0...remind-mcp-v1.1.1) (2026-09-21)
 
 
