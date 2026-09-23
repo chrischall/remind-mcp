@@ -135,6 +135,13 @@ describe('remind_graphql escape hatch', () => {
     ['mutation M { putMessage { __typename } }'],
     ['  mutation { x }'],
     ['query A { a } mutation B { b }'],
+    // GraphQL commas are insignificant, and an operation may directly follow `}`.
+    [',mutation M($i:PutMessageInput!){putMessage(input:$i){error{__typename}}}'],
+    ['query A{me{id}}mutation B{x}'],
+    ['# harmless\nmutation{x}'],
+    ['\uFEFFmutation{x}'],
+    ['subscription S { x }'],
+    ['not a graphql document {'],
   ])('refuses a mutation document: %s', async (doc) => {
     const graphql = vi.fn();
     const h = await createTestHarness((s) => registerRawTools(s, stubClient(graphql)));
@@ -147,6 +154,16 @@ describe('remind_graphql escape hatch', () => {
     const graphql = vi.fn(async () => ({ ok: true }));
     const h = await createTestHarness((s) => registerRawTools(s, stubClient(graphql)));
     const res = await h.callTool('remind_graphql', { query: '{ stats { mutationCount } }' });
+    expect(res.isError).toBeFalsy();
+    expect(graphql).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not mistake the word mutation inside a string argument for a mutation', async () => {
+    const graphql = vi.fn(async () => ({ ok: true }));
+    const h = await createTestHarness((s) => registerRawTools(s, stubClient(graphql)));
+    const res = await h.callTool('remind_graphql', {
+      query: 'query Q { search(q: "} mutation {") { id } } fragment F on Class { uuid }',
+    });
     expect(res.isError).toBeFalsy();
     expect(graphql).toHaveBeenCalledTimes(1);
   });

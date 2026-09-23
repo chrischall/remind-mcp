@@ -1,11 +1,34 @@
 import { z } from 'zod';
+import { Kind, parse } from 'graphql';
 import type { McpServer } from '@modelcontextprotocol/server';
 import { McpToolError, minifiedResult, toolAnnotations } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
 import { ME } from '../queries.js';
 
-/** Mutations must go through the confirm-gated tools, never the escape hatch. */
-const MUTATION_RE = /(^|[\s{])mutation\b/i;
+/**
+ * Mutations must go through the confirm-gated tools, never the escape hatch.
+ * The document is parsed rather than pattern-matched: GraphQL treats commas,
+ * comments and a BOM as ignored tokens and lets an operation follow `}`
+ * directly, so a regex over the raw text is trivially sidestepped
+ * (`,mutation M { ... }`). Anything that is not solely query operations (plus
+ * fragments) is refused, including a document that does not parse at all.
+ */
+export function readOnlyViolation(query: string): string | null {
+  let doc;
+  try {
+    doc = parse(query, { noLocation: true });
+  } catch (err) {
+    return `the document does not parse (${(err as Error).message})`;
+  }
+  for (const def of doc.definitions) {
+    if (def.kind === Kind.OPERATION_DEFINITION) {
+      if (def.operation !== 'query') return `it contains a ${def.operation} operation`;
+    } else if (def.kind !== Kind.FRAGMENT_DEFINITION) {
+      return `it contains a ${def.kind} definition`;
+    }
+  }
+  return null;
+}
 
 export function registerRawTools(server: McpServer, client: RemindClient): void {
   server.registerTool(
@@ -23,8 +46,9 @@ export function registerRawTools(server: McpServer, client: RemindClient): void 
       }),
     },
     async ({ query, variables }) => {
-      if (MUTATION_RE.test(query)) {
-        throw new McpToolError('remind_graphql is read-only; mutations are refused.', {
+      const violation = readOnlyViolation(query);
+      if (violation) {
+        throw new McpToolError(`remind_graphql is read-only; refused because ${violation}.`, {
           hint: 'Use remind_send_message or remind_set_notification_devices, which are confirm-gated.',
         });
       }
