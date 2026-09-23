@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.3](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.1.2...remind-mcp-v1.1.3) (2026-09-23)
+
+
+### Bug Fixes
+
+* harden remind_graphql read-only guard, surface refused sends, keep sessions on field-level Unauthorized ([#65](https://github.com/chrischall/remind-mcp/issues/65)) ([61393ef](https://github.com/chrischall/remind-mcp/commit/61393ef6d8f325632b669cc256b27b717afe8d89))
+
 ## [1.1.2](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.1.1...remind-mcp-v1.1.2) (2026-09-23)
 
 
