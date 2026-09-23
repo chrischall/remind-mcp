@@ -4,6 +4,7 @@ import {
   createFileStatePersistence,
   resolveStateFile,
 } from '@chrischall/mcp-utils/session';
+import { ME_PROBE } from './queries.js';
 import {
   REMIND_ORIGIN,
   captureRemindHeaders,
@@ -38,6 +39,12 @@ export function isUnauthorized(res: GraphQLResponse): boolean {
 
 type Fetch = typeof globalThis.fetch;
 
+/** One GraphQL round-trip plus the verdict on whether it proved the session dead. */
+interface Attempt {
+  res: GraphQLResponse;
+  expired: boolean;
+}
+
 export interface RemindClientOpts {
   /** Injectable for tests. Defaults to a receiver-safe wrapper around global fetch. */
   fetchImpl?: Fetch;
@@ -65,7 +72,7 @@ export interface RemindClientOpts {
 
 export class RemindClient {
   private readonly fetchImpl: Fetch;
-  private readonly sessions: CookieSessionManager<RemindSession, GraphQLResponse>;
+  private readonly sessions: CookieSessionManager<RemindSession, Attempt>;
   private readonly transportFactory: NonNullable<RemindClientOpts['transportFactory']>;
 
   constructor(opts: RemindClientOpts = {}) {
@@ -74,9 +81,12 @@ export class RemindClient {
     // receiver and throws "Illegal invocation" on older undici. Wrap it.
     this.fetchImpl = opts.fetchImpl ?? ((input, init) => fetch(input, init));
     const capture = opts.captureSession ?? (() => this.bootstrapViaBridge());
-    this.sessions = new CookieSessionManager<RemindSession, GraphQLResponse>({
+    this.sessions = new CookieSessionManager<RemindSession, Attempt>({
       login: async () => sessionFromEnv() ?? (await capture()),
-      isExpired: (res) => isUnauthorized(res),
+      // Expiry is decided inside the call (see attempt()), where the session is
+      // in hand to probe with; invalidating on any Unauthorized would discard a
+      // valid persisted session whenever a parent touched a teacher-only field.
+      isExpired: (attempt) => attempt.expired,
       // Without this the bridge capture re-runs on every cold start, and that
       // capture can only complete while the signed-in tab happens to make a
       // /graphql request — so a hosted child restarting overnight would hang
@@ -114,7 +124,7 @@ export class RemindClient {
     query: string,
     variables: Record<string, unknown> = {},
   ): Promise<T> {
-    const res = await this.sessions.withSession((session) => this.post<T>(session, query, variables));
+    const { res } = await this.sessions.withSession((session) => this.attempt(session, query, variables));
     if (res.errors?.length) {
       const first = res.errors[0];
       if (isUnauthorized(res)) {
@@ -132,6 +142,33 @@ export class RemindClient {
     }
     if (res.data == null) throw new McpToolError('Remind returned no data for that query.');
     return res.data as T;
+  }
+
+  /**
+   * Run the document and judge whether an `Unauthorized` means the session is
+   * dead. Remind uses the same error for a field this account may not use, so
+   * an error scoped to a field other than `me` is checked against a minimal
+   * `me` probe on the same session: only if that is also refused is it expiry.
+   */
+  private async attempt(
+    session: RemindSession,
+    query: string,
+    variables: Record<string, unknown>,
+  ): Promise<Attempt> {
+    const res = await this.post(session, query, variables);
+    if (!isUnauthorized(res)) return { res, expired: false };
+    const sessionWide = (res.errors ?? []).some(
+      (e) => isUnauthorized({ errors: [e] }) && (!e.path?.length || e.path[0] === 'me'),
+    );
+    if (sessionWide) return { res, expired: true };
+    let probe: GraphQLResponse<{ me?: { uuid?: string } | null }>;
+    try {
+      probe = await this.post(session, ME_PROBE, {});
+    } catch {
+      // Could not tell; keep the session and surface the original error.
+      return { res, expired: false };
+    }
+    return { res, expired: isUnauthorized(probe) || !probe.data?.me?.uuid };
   }
 
   private async post<T>(

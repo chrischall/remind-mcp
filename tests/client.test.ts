@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { RemindClient, isUnauthorized } from '../src/client.js';
 import type { RemindSession } from '../src/session.js';
 
@@ -53,6 +56,59 @@ describe('RemindClient.graphql', () => {
     const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession, sessionFile: null });
     await expect(client.graphql('{ me { uuid } }')).resolves.toEqual({ me: { uuid: 'u1' } });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(captureSession).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the session when an Unauthorized is scoped to a field the account may not use', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'remind-mcp-'));
+    const sessionFile = join(dir, 'session.json');
+    const bodies: string[] = [];
+    const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
+      const { query } = JSON.parse(init.body as string) as { query: string };
+      bodies.push(query);
+      return query.includes('scheduledMessages')
+        ? jsonResponse({ data: null, errors: [{ message: 'Unauthorized', path: ['scheduledMessages'] }] })
+        : jsonResponse({ data: { me: { uuid: 'u1' } } });
+    });
+    const captureSession = vi.fn(capture);
+    const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession, sessionFile });
+    await expect(client.graphql('{ scheduledMessages { uuid } }')).rejects.toThrow(/unauthorized/i);
+    // The `me` probe proved the session still authenticates: no re-capture, no replay…
+    expect(captureSession).toHaveBeenCalledTimes(1);
+    expect(bodies.filter((q) => q.includes('scheduledMessages'))).toHaveLength(1);
+    // …and the persisted session survives for the next process.
+    await new Promise((r) => setTimeout(r, 10));
+    expect(existsSync(sessionFile)).toBe(true);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('keeps the session and surfaces the original error when the me probe cannot be made', async () => {
+    const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
+      const { query } = JSON.parse(init.body as string) as { query: string };
+      if (query.includes('RemindMeProbe')) throw Object.assign(new Error('fail'), { cause: { code: 'ECONNRESET' } });
+      return jsonResponse({ data: null, errors: [{ message: 'Unauthorized', path: ['scheduledMessages'] }] });
+    });
+    const captureSession = vi.fn(capture);
+    const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession, sessionFile: null });
+    await expect(client.graphql('{ scheduledMessages { uuid } }')).rejects.toThrow(/unauthorized/i);
+    expect(captureSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-captures when a field-scoped Unauthorized turns out to be a real expiry', async () => {
+    let expired = true;
+    const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
+      const { query } = JSON.parse(init.body as string) as { query: string };
+      if (expired) {
+        return jsonResponse({ data: null, errors: [{ message: 'Unauthorized', path: [query.includes('classes') ? 'classes' : 'me'] }] });
+      }
+      return jsonResponse({ data: { classes: [] } });
+    });
+    const captureSession = vi.fn(async () => {
+      if (captureSession.mock.calls.length > 1) expired = false;
+      return SESSION;
+    });
+    const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession, sessionFile: null });
+    await expect(client.graphql('{ classes { uuid } }')).resolves.toEqual({ classes: [] });
     expect(captureSession).toHaveBeenCalledTimes(2);
   });
 

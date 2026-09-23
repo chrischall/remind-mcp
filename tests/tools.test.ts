@@ -83,10 +83,33 @@ describe('confirm-gated writes', () => {
   });
 
   it('remind_send_message sends only with confirm:true', async () => {
-    const graphql = vi.fn(async () => ({ putMessage: { error: null } }));
+    const graphql = vi.fn(async () => ({ putMessage: { error: null, messages: [{ __typename: 'MessageItem' }] } }));
     const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)));
     await h.callTool('remind_send_message', { recipient_uuid: 'c1', body: 'hi', confirm: true });
     expect(graphql).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['a populated error', { putMessage: { error: { __typename: 'CannotSendError' }, messages: null } }, /CannotSendError/],
+    ['no messages', { putMessage: { error: null, messages: [] } }, /no message/i],
+    ['a null payload', { putMessage: null }, /no message/i],
+  ])('remind_send_message reports a failed send (%s) as an error', async (_label, payload, pattern) => {
+    const graphql = vi.fn(async () => payload);
+    const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)));
+    const res = await h.callTool('remind_send_message', { recipient_uuid: 'c1', body: 'hi', confirm: true });
+    expect(res.isError).toBe(true);
+    expect(JSON.stringify(res.content)).toMatch(pattern);
+  });
+
+  it('remind_send_message reports success with the sent messages', async () => {
+    const graphql = vi.fn(async () => ({ putMessage: { error: null, messages: [{ __typename: 'MessageItem' }] } }));
+    const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)));
+    const res = await h.callTool('remind_send_message', { recipient_uuid: 'c1', body: 'hi', confirm: true });
+    expect(res.isError).toBeFalsy();
+    expect(parseToolResult<{ sent: boolean; messages: unknown[] }>(res)).toEqual({
+      sent: true,
+      messages: [{ __typename: 'MessageItem' }],
+    });
   });
 
   it('remind_set_notification_devices previews without calling', async () => {
@@ -135,6 +158,13 @@ describe('remind_graphql escape hatch', () => {
     ['mutation M { putMessage { __typename } }'],
     ['  mutation { x }'],
     ['query A { a } mutation B { b }'],
+    // GraphQL commas are insignificant, and an operation may directly follow `}`.
+    [',mutation M($i:PutMessageInput!){putMessage(input:$i){error{__typename}}}'],
+    ['query A{me{id}}mutation B{x}'],
+    ['# harmless\nmutation{x}'],
+    ['\uFEFFmutation{x}'],
+    ['subscription S { x }'],
+    ['not a graphql document {'],
   ])('refuses a mutation document: %s', async (doc) => {
     const graphql = vi.fn();
     const h = await createTestHarness((s) => registerRawTools(s, stubClient(graphql)));
@@ -147,6 +177,16 @@ describe('remind_graphql escape hatch', () => {
     const graphql = vi.fn(async () => ({ ok: true }));
     const h = await createTestHarness((s) => registerRawTools(s, stubClient(graphql)));
     const res = await h.callTool('remind_graphql', { query: '{ stats { mutationCount } }' });
+    expect(res.isError).toBeFalsy();
+    expect(graphql).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not mistake the word mutation inside a string argument for a mutation', async () => {
+    const graphql = vi.fn(async () => ({ ok: true }));
+    const h = await createTestHarness((s) => registerRawTools(s, stubClient(graphql)));
+    const res = await h.callTool('remind_graphql', {
+      query: 'query Q { search(q: "} mutation {") { id } } fragment F on Class { uuid }',
+    });
     expect(res.isError).toBeFalsy();
     expect(graphql).toHaveBeenCalledTimes(1);
   });
