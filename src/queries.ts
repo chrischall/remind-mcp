@@ -6,6 +6,15 @@
  * expensive and these should not be edited without re-running them.
  */
 
+/** Smallest authenticated query: used to tell session expiry from a field-level refusal. */
+export const ME_PROBE = /* GraphQL */ `
+  query RemindMeProbe {
+    me {
+      uuid
+    }
+  }
+`;
+
 export const ME = /* GraphQL */ `
   query RemindMe {
     me {
