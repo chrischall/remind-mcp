@@ -6,7 +6,8 @@ import type { RemindClient } from '../client.js';
 import { ME } from '../queries.js';
 
 /**
- * Mutations must go through the confirm-gated tools, never the escape hatch.
+ * Mutations must go through the typed write tools, which preview the change and
+ * ask for confirmation first, never the escape hatch.
  * The document is parsed rather than pattern-matched: GraphQL treats commas,
  * comments and a BOM as ignored tokens and lets an operation follow `}`
  * directly, so a regex over the raw text is trivially sidestepped
@@ -37,7 +38,8 @@ export function registerRawTools(server: McpServer, client: RemindClient): void 
       description:
         "Run an arbitrary READ-ONLY GraphQL query against Remind's API. Introspection is enabled, so " +
         '`{ __schema { ... } }` and `{ __type(name:"Class") { fields { name } } }` work for discovering ' +
-        'fields the typed tools do not expose. Mutations are rejected — use the confirm-gated write tools. ' +
+        'fields the typed tools do not expose. Mutations are rejected — use the write tools, which preview ' +
+        'the change and ask you to confirm first. ' +
         'Note: Remind reports an unknown field as a 500-backed GRAPHQL_VALIDATION_FAILED, not a field error.',
       annotations: toolAnnotations({ title: 'Remind raw GraphQL', readOnly: true }),
       inputSchema: z.object({
@@ -49,7 +51,9 @@ export function registerRawTools(server: McpServer, client: RemindClient): void 
       const violation = readOnlyViolation(query);
       if (violation) {
         throw new McpToolError(`remind_graphql is read-only; refused because ${violation}.`, {
-          hint: 'Use remind_send_message or remind_set_notification_devices, which are confirm-gated.',
+          hint:
+            'Use remind_send_message or remind_set_notification_devices, which preview the change and ' +
+            'ask for confirmation before sending.',
         });
       }
       return minifiedResult(await client.graphql(query, variables ?? {}));
