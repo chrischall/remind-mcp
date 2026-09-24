@@ -44,6 +44,12 @@ restarts, and every call after the bootstrap is a plain server-side fetch. This 
 the capture completes only while the signed-in tab is actually issuing a `/graphql` request — so
 without the cache, a restart would sit waiting unless you happened to be using Remind.
 
+The cache is bounded: analytics and consent cookies are dropped from the jar before it is used or
+stored, the record is bound to the Remind account (`me.uuid`) it authenticated as when captured —
+a restored session that answers as a different account, or as none, is discarded and re-captured —
+and it is re-captured from the browser after at most 7 days. An env-supplied session is never
+restored from the cache.
+
 ## Tools
 
 | Tool | |
