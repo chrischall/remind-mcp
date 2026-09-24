@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/server';
-import { McpToolError, minifiedResult, schemaConfirm, toolAnnotations } from '@chrischall/mcp-utils';
+import {
+  McpToolError,
+  confirmTokenParam,
+  confirmationFromEnv,
+  minifiedResult,
+  requireConfirmationWithFallback,
+  toolAnnotations,
+} from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
 import { ME, NOTIFICATION_SETTINGS, UPDATE_NOTIFICATIONS } from '../queries.js';
 
@@ -34,28 +41,35 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
     {
       description:
         'Enable or disable notification delivery devices by id (from remind_get_notification_settings). ' +
-        'Without confirm:true this makes NO network call and returns a dry-run preview of the exact mutation input.',
+        'Nothing is sent until confirmed; the preview shows the exact mutation input. ' +
+        'Asks the user to confirm first: a confirmation prompt where the client supports one; otherwise the first call returns a preview and a confirmToken, and only a repeat call with that token proceeds (see MCP_CONFIRM_MODE).',
       annotations: toolAnnotations({ title: 'Remind set notification devices', readOnly: false, destructive: false }),
       inputSchema: z.object({
         enable: z.array(z.number().int()).optional().describe('Device ids to enable.'),
         disable: z.array(z.number().int()).optional().describe('Device ids to disable.'),
-        confirm: schemaConfirm,
+        confirmToken: confirmTokenParam,
       }),
     },
-    async ({ enable, disable, confirm }) => {
+    async ({ enable, disable, confirmToken }, ctx) => {
       const input: Record<string, number[]> = {};
       if (enable?.length) input.devicesToEnable = enable;
       if (disable?.length) input.devicesToDisable = disable;
       if (!Object.keys(input).length) {
         throw new McpToolError('Nothing to do: pass at least one device id in `enable` or `disable`.');
       }
-      if (!confirm) {
-        return minifiedResult({
-          dryRun: true,
-          wouldSend: { mutation: 'updateAccountNotificationsScreen', input },
-          note: 'Re-run with confirm: true to apply.',
-        });
-      }
+      const wouldSend = { mutation: 'updateAccountNotificationsScreen', input };
+      const gate = await requireConfirmationWithFallback(
+        ctx,
+        confirmationFromEnv({
+          action: 'notifications.set_devices',
+          message: 'Review and confirm this notification device change:',
+          details: wouldSend,
+          tool: 'remind_set_notification_devices',
+          confirmToken,
+          subject: () => ({ target: '', payload: wouldSend, preview: { wouldSend } }),
+        }),
+      );
+      if (gate) return gate;
       await client.graphql(UPDATE_NOTIFICATIONS, { input });
       // A 200 is not proof: re-read and report the devices' observed state.
       const after = await client.graphql<{

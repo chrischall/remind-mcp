@@ -34,7 +34,7 @@
     },
     {
       "name": "remind_set_notification_devices",
-      "description": "Enable or disable notification delivery devices."
+      "description": "Enable or disable notification delivery devices (asks the user to confirm first)."
     },
     {
       "name": "remind_list_entities",
@@ -54,7 +54,7 @@
     },
     {
       "name": "remind_send_message",
-      "description": "Send a message to a chat or class (confirm-gated)."
+      "description": "Send a message to a chat or class (asks the user to confirm first)."
     },
     {
       "name": "remind_graphql",

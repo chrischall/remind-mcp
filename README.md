@@ -54,13 +54,24 @@ without the cache, a restart would sit waiting unless you happened to be using R
 | `remind_list_chats` | Conversation streams and their permissions (`canSend`). |
 | `remind_get_messages` | Messages in a chat stream. |
 | `remind_get_notification_settings` | Preferences and delivery devices. |
-| `remind_set_notification_devices` | Enable/disable delivery devices. **Confirm-gated.** |
-| `remind_send_message` | Send to a chat or class. **Confirm-gated.** |
+| `remind_set_notification_devices` | Enable/disable delivery devices. **Asks you to confirm first.** |
+| `remind_send_message` | Send to a chat or class. **Asks you to confirm first.** |
 | `remind_graphql` | Arbitrary read-only GraphQL; introspection is enabled. Mutations refused. |
 | `remind_healthcheck` | Verify the session still authenticates. |
 
-Write tools take `confirm: true`. Without it they make **no network call** and return a dry-run
-preview of the exact payload.
+## Confirmations
+
+Write tools ask you to confirm before anything is sent. A client that can show a confirmation
+prompt (Claude Code) shows one. Otherwise the first call makes **no network call** and returns a
+preview of the exact payload plus a `confirmToken`; only a repeat call with that token (and the
+same arguments) performs the write. A token works once, and changing any argument between the
+two calls voids it.
+
+| variable | default | |
+|---|---|---|
+| `MCP_CONFIRM_MODE` | `ask-user` | What a write does on a client that cannot show a confirmation prompt (claude.ai, Claude Desktop). `ask-user`: two steps — the first call does nothing and returns a preview plus a token, and the model must get your approval in chat before calling again with it. `auto`: the same two steps, but the model may use the token after reviewing the preview itself. `refuse`: writes are refused on such clients. A client that can show prompts (Claude Code) always gets the real prompt. An unrecognised value is treated as `refuse`. |
+| `MCP_CONFIRM_TTL_SECONDS` | `600` | How long a token stays valid. |
+| `MCP_CONFIRM_SECRET` | random per process | Signing key; set it only if tokens must survive a server restart. |
 
 ## Without the server
 
