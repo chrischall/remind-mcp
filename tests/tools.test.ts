@@ -255,6 +255,16 @@ describe('remind_graphql escape hatch', () => {
     expect(graphql).not.toHaveBeenCalled();
   });
 
+  it('points a refused mutation at the write tools in their current preview-and-confirm terms', async () => {
+    const h = await createTestHarness((s) => registerRawTools(s, stubClient(vi.fn())));
+    const res = await h.callTool('remind_graphql', { query: 'mutation M { x }' });
+    const text = JSON.stringify(res.content);
+    expect(text).toContain('remind_send_message');
+    expect(text).toContain('remind_set_notification_devices');
+    expect(text).toMatch(/preview/i);
+    expect(text).not.toMatch(/confirm-gated/i);
+  });
+
   it('does not mistake a field named mutationCount for a mutation', async () => {
     const graphql = vi.fn(async () => ({ ok: true }));
     const h = await createTestHarness((s) => registerRawTools(s, stubClient(graphql)));
