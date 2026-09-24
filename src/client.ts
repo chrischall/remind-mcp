@@ -39,6 +39,14 @@ export function isUnauthorized(res: GraphQLResponse): boolean {
 
 type Fetch = typeof globalThis.fetch;
 
+/**
+ * How long a captured session may be reused from the cache before the browser
+ * is asked for a fresh one. Long enough that an overnight cold start never
+ * needs the tab; short enough that a cached jar does not outlive the browser
+ * session it was lifted from indefinitely.
+ */
+export const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
 /** One GraphQL round-trip plus the verdict on whether it proved the session dead. */
 interface Attempt {
   res: GraphQLResponse;
@@ -74,6 +82,8 @@ export class RemindClient {
   private readonly fetchImpl: Fetch;
   private readonly sessions: CookieSessionManager<RemindSession, Attempt>;
   private readonly transportFactory: NonNullable<RemindClientOpts['transportFactory']>;
+  /** Sessions already shown (this process) to authenticate as their bound account. */
+  private readonly verified = new WeakSet<RemindSession>();
 
   constructor(opts: RemindClientOpts = {}) {
     this.transportFactory = opts.transportFactory ?? (() => createRemindTransport());
@@ -82,7 +92,11 @@ export class RemindClient {
     this.fetchImpl = opts.fetchImpl ?? ((input, init) => fetch(input, init));
     const capture = opts.captureSession ?? (() => this.bootstrapViaBridge());
     this.sessions = new CookieSessionManager<RemindSession, Attempt>({
-      login: async () => sessionFromEnv() ?? (await capture()),
+      // A captured session is stamped with the account it authenticates as, so
+      // a cached copy can later be checked against that account (attempt()).
+      // An env session is the operator's explicit choice and is left unbound.
+      login: async () => sessionFromEnv() ?? (await this.bindAccount(await capture())),
+      maxAgeMs: SESSION_MAX_AGE_MS,
       // Expiry is decided inside the call (see attempt()), where the session is
       // in hand to probe with; invalidating on any Unauthorized would discard a
       // valid persisted session whenever a parent touched a teacher-only field.
@@ -95,10 +109,14 @@ export class RemindClient {
         filePath:
           opts.sessionFile ??
           resolveStateFile({ envVar: 'REMIND_SESSION_FILE', fileName: 'session.json', subdir: '.remind-mcp' }),
+        // Only an account-bound record is restorable: an unbound one (an env
+        // session, a legacy file, a capture whose `me` probe failed) cannot be
+        // shown to belong to anyone, so it is re-captured instead. A record with
+        // no clock counts as infinitely old rather than freshly minted.
         validate: (raw) => {
           const r = raw as { session?: Partial<RemindSession>; sessionAt?: number } | null;
-          if (!r?.session?.cookie || !r.session.csrfToken) return null;
-          return { session: r.session as RemindSession, sessionAt: r.sessionAt ?? Date.now() };
+          if (!r?.session?.cookie || !r.session.csrfToken || !r.session.accountUuid) return null;
+          return { session: r.session as RemindSession, sessionAt: r.sessionAt ?? 0 };
         },
       }),
     });
@@ -117,6 +135,21 @@ export class RemindClient {
     } finally {
       await transport.close().catch(() => {});
     }
+  }
+
+  /** Stamp a freshly captured session with its `me.uuid`; unbound if that cannot be read. */
+  private async bindAccount(session: RemindSession): Promise<RemindSession> {
+    let accountUuid: string | undefined;
+    try {
+      const probe = await this.post<{ me?: { uuid?: string } | null }>(session, ME_PROBE, {});
+      if (!isUnauthorized(probe)) accountUuid = probe.data?.me?.uuid ?? undefined;
+    } catch {
+      // Leave it unbound: usable now, but never restored from the cache.
+    }
+    const bound: RemindSession = { ...session, accountUuid };
+    if (!accountUuid) delete bound.accountUuid;
+    this.verified.add(bound);
+    return bound;
   }
 
   /** Run a GraphQL document, replaying exactly once if the session expired. */
@@ -155,6 +188,16 @@ export class RemindClient {
     query: string,
     variables: Record<string, unknown>,
   ): Promise<Attempt> {
+    // A session restored from the cache is used only once a `me` probe shows it
+    // still authenticates as the account it was captured for. Anything else —
+    // another account, or no account — is treated as expiry and re-captured.
+    if (session.accountUuid && !this.verified.has(session)) {
+      const probe = await this.post<{ me?: { uuid?: string } | null }>(session, ME_PROBE, {});
+      if (probe.data?.me?.uuid !== session.accountUuid) {
+        return { res: { errors: [{ message: 'Unauthorized' }] }, expired: true };
+      }
+      this.verified.add(session);
+    }
     const res = await this.post(session, query, variables);
     if (!isUnauthorized(res)) return { res, expired: false };
     const sessionWide = (res.errors ?? []).some(

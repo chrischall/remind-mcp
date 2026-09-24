@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { sessionFromCapture, sessionFromEnv, remindBootstrapOpts, DEFAULT_WS_PORT } from '../src/session.js';
+import { sessionFromCapture, sessionFromEnv, stripTrackingCookies, remindBootstrapOpts, DEFAULT_WS_PORT } from '../src/session.js';
 
 const clearEnv = () => { delete process.env.REMIND_COOKIE; delete process.env.REMIND_CSRF_TOKEN; };
 afterEach(clearEnv);
@@ -21,6 +21,22 @@ describe('sessionFromCapture', () => {
 
   it('names both when nothing was captured', () => {
     expect(() => sessionFromCapture({})).toThrow(/cookie and x-csrf-token/);
+  });
+  it('drops third-party analytics/consent cookies before the jar is used or cached', () => {
+    const s = sessionFromCapture({ capturedHeaders: {
+      cookie: '_ga=GA1.2.x; remind_session=abc; _gid=y; csrf_token=t; _fbp=fb.1; OptanonConsent=c; ajs_user_id=u; amp_1a2b=z',
+      'x-csrf-token': 'tok',
+    } });
+    expect(s.cookie).toBe('remind_session=abc; csrf_token=t');
+  });
+});
+
+describe('stripTrackingCookies', () => {
+  it('keeps every first-party cookie untouched, in order', () => {
+    expect(stripTrackingCookies('a=1; b=2;c=3')).toBe('a=1; b=2; c=3');
+  });
+  it('never returns an empty jar — keeps the original if everything matched', () => {
+    expect(stripTrackingCookies('_ga=1; _gid=2')).toBe('_ga=1; _gid=2');
   });
 });
 

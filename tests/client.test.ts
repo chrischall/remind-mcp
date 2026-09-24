@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RemindClient, isUnauthorized } from '../src/client.js';
+import { RemindClient, SESSION_MAX_AGE_MS, isUnauthorized } from '../src/client.js';
 import type { RemindSession } from '../src/session.js';
 
 const SESSION: RemindSession = { cookie: 'a=1; b=2', csrfToken: 'tok-123', capturedAt: 'now' };
@@ -30,7 +30,8 @@ describe('RemindClient.graphql', () => {
     const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession: capture, sessionFile: null });
     await client.graphql('{ me { uuid } }');
 
-    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    // The last call is the caller's query (a `me` probe stamps the account first).
+    const [url, init] = fetchImpl.mock.calls.at(-1) as unknown as [string, RequestInit];
     expect(url).toBe('https://www.remind.com/graphql');
     const headers = init.headers as Record<string, string>;
     expect(headers.cookie).toBe(SESSION.cookie);
@@ -46,7 +47,9 @@ describe('RemindClient.graphql', () => {
 
   it('re-captures the session exactly once when Remind reports Unauthorized', async () => {
     let call = 0;
-    const fetchImpl = vi.fn(async () => {
+    const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
+      const { query } = JSON.parse(init.body as string) as { query: string };
+      if (query.includes('RemindMeProbe')) return jsonResponse({ data: { me: { uuid: 'u1' } } });
       call += 1;
       return call === 1
         ? jsonResponse({ errors: [{ message: 'Unauthorized' }] })
@@ -55,7 +58,7 @@ describe('RemindClient.graphql', () => {
     const captureSession = vi.fn(capture);
     const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession, sessionFile: null });
     await expect(client.graphql('{ me { uuid } }')).resolves.toEqual({ me: { uuid: 'u1' } });
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(call).toBe(2);
     expect(captureSession).toHaveBeenCalledTimes(2);
   });
 
@@ -251,6 +254,8 @@ describe('session persistence', () => {
     const fs = await import('node:fs');
     const stored = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
     expect(stored.state.session.cookie).toBe(SESSION.cookie);
+    // Bound to the account the capture authenticated as.
+    expect(stored.state.session.accountUuid).toBe('u1');
     // It holds a live credential, so it must not be world-readable.
     expect(fs.statSync(sessionFile).mode & 0o077).toBe(0);
   });
@@ -291,19 +296,88 @@ describe('default session-file resolution', () => {
     }
   });
 
-  it('accepts a stored record with no sessionAt clock', async () => {
+  it('rejects a legacy stored record that is not bound to an account', async () => {
     const { mkdtempSync, writeFileSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
     const { join } = await import('node:path');
-    const sessionFile = join(mkdtempSync(join(tmpdir(), 'remind-noclock-')), 'session.json');
+    const sessionFile = join(mkdtempSync(join(tmpdir(), 'remind-legacy-')), 'session.json');
     writeFileSync(sessionFile, JSON.stringify({
-      v: 1, state: { session: { cookie: 'a=1', csrfToken: 'tok', capturedAt: 'now' } },
+      v: 1, state: { session: { cookie: 'a=1', csrfToken: 'tok', capturedAt: 'now' }, sessionAt: Date.now() },
     }));
     const captureSession = vi.fn(capture);
     const client = new RemindClient({
       fetchImpl: vi.fn(async () => jsonOk()) as never, captureSession, sessionFile,
     });
     await client.graphql('{ me { uuid } }');
+    expect(captureSession).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('account binding and expiry of the cached session', () => {
+  const tmpFile = (prefix: string) => join(mkdtempSync(join(tmpdir(), prefix)), 'session.json');
+  const OTHER: RemindSession = { cookie: 'c=3', csrfToken: 'tok-456', capturedAt: 'now' };
+  /** Answers the `me` probe per cookie jar; every other query succeeds. */
+  const fetchByCookie = (uuidFor: Record<string, string>) =>
+    vi.fn(async (_url: string, init: RequestInit) => {
+      const { query } = JSON.parse(init.body as string) as { query: string };
+      const cookie = (init.headers as Record<string, string>).cookie;
+      if (query.includes('RemindMeProbe')) return jsonResponse({ data: { me: { uuid: uuidFor[cookie] } } });
+      return jsonResponse({ data: { classes: [] } });
+    });
+  const writeRecord = (file: string, session: RemindSession & { accountUuid?: string }, sessionAt: number) =>
+    import('node:fs').then(({ writeFileSync }) =>
+      writeFileSync(file, JSON.stringify({ v: 1, state: { session, sessionAt } })));
+
+  it('re-captures when a restored session now authenticates as a different account', async () => {
+    const sessionFile = tmpFile('remind-bind-');
+    await writeRecord(sessionFile, { ...SESSION, accountUuid: 'u1' }, Date.now());
+    // The cached jar now answers as u2 — it no longer belongs to the account it was bound to.
+    const fetchImpl = fetchByCookie({ [SESSION.cookie]: 'u2', [OTHER.cookie]: 'u9' });
+    const captureSession = vi.fn(async () => OTHER);
+    const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession, sessionFile });
+    await expect(client.graphql('{ classes { uuid } }')).resolves.toEqual({ classes: [] });
+    expect(captureSession).toHaveBeenCalledTimes(1);
+    const last = fetchImpl.mock.calls.at(-1) as unknown as [string, RequestInit];
+    expect((last[1].headers as Record<string, string>).cookie).toBe(OTHER.cookie);
+    const { readFileSync } = await import('node:fs');
+    expect(JSON.parse(readFileSync(sessionFile, 'utf8')).state.session.accountUuid).toBe('u9');
+  });
+
+  it('verifies a restored session once per process, then trusts it', async () => {
+    const sessionFile = tmpFile('remind-once-');
+    await writeRecord(sessionFile, { ...SESSION, accountUuid: 'u1' }, Date.now());
+    const fetchImpl = fetchByCookie({ [SESSION.cookie]: 'u1' });
+    const captureSession = vi.fn(capture);
+    const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession, sessionFile });
+    await client.graphql('{ classes { uuid } }');
+    await client.graphql('{ classes { uuid } }');
     expect(captureSession).not.toHaveBeenCalled();
+    const probes = fetchImpl.mock.calls.filter(([, init]) =>
+      (JSON.parse((init as RequestInit).body as string) as { query: string }).query.includes('RemindMeProbe'));
+    expect(probes).toHaveLength(1);
+  });
+
+  it('re-captures a cached session older than the max age', async () => {
+    const sessionFile = tmpFile('remind-stale-');
+    await writeRecord(sessionFile, { ...SESSION, accountUuid: 'u1' }, Date.now() - SESSION_MAX_AGE_MS - 60_000);
+    const fetchImpl = fetchByCookie({ [SESSION.cookie]: 'u1' });
+    const captureSession = vi.fn(capture);
+    const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession, sessionFile });
+    await client.graphql('{ classes { uuid } }');
+    expect(captureSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not bind or verify an operator-supplied env session', async () => {
+    process.env.REMIND_COOKIE = 'env=1';
+    process.env.REMIND_CSRF_TOKEN = 'envtok';
+    try {
+      const fetchImpl = fetchByCookie({ 'env=1': 'u1' });
+      const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession: capture, sessionFile: null });
+      await client.graphql('{ classes { uuid } }');
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    } finally {
+      delete process.env.REMIND_COOKIE;
+      delete process.env.REMIND_CSRF_TOKEN;
+    }
   });
 });

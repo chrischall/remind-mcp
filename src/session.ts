@@ -19,6 +19,28 @@ export interface RemindSession {
   cookie: string;
   csrfToken: string;
   capturedAt: string;
+  /**
+   * The `me.uuid` this session authenticated as when it was captured. A cached
+   * session is only restored for the account it was bound to — see client.ts.
+   * Absent on an operator-supplied env session, which is never verified.
+   */
+  accountUuid?: string;
+}
+
+/**
+ * Cookies the browser attaches to www.remind.com that no Remind endpoint
+ * reads: analytics, ad attribution and consent-banner state. Remind's own auth
+ * cookie name is not documented as stable, so the jar is filtered by denylist
+ * rather than reduced to one named cookie — dropping these cannot break auth,
+ * and it keeps third-party tracking identifiers off disk and off the wire.
+ */
+const TRACKING_COOKIE = /^(_ga|_gid|_gat|_gcl_|_fbp|_fbc|__utm|_hj|ajs_|amp_|_uet|_clck|_clsk|__hs|hubspot|_dd_s|intercom-|mp_|optimizely|OptanonConsent|OptanonAlertBoxClosed)/i;
+
+/** Drop {@link TRACKING_COOKIE} entries from a Cookie header; never returns an empty jar. */
+export function stripTrackingCookies(header: string): string {
+  const pairs = header.split(';').map((p) => p.trim()).filter(Boolean);
+  const kept = pairs.filter((p) => !TRACKING_COOKIE.test(p.split('=', 1)[0]));
+  return (kept.length ? kept : pairs).join('; ');
 }
 
 /** Shape of the `session` payload the fetchproxy bootstrap returns. */
@@ -57,7 +79,7 @@ export function sessionFromCapture(captured: CapturedSession): RemindSession {
         'that finished beforehand is not seen.',
     });
   }
-  return { cookie, csrfToken, capturedAt: new Date().toISOString() };
+  return { cookie: stripTrackingCookies(cookie), csrfToken, capturedAt: new Date().toISOString() };
 }
 
 /**
