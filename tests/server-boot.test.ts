@@ -99,14 +99,14 @@ describe.runIf(built)('server boot (real artifacts)', () => {
     const schema = byName(binTools, 'remind_send_message').inputSchema;
     const props = schema.properties ?? {};
     expect(Object.keys(props).sort()).toEqual(
-      ['body', 'confirm', 'recipient_type', 'recipient_uuid', 'urgent'],
+      ['body', 'confirmToken', 'recipient_type', 'recipient_uuid', 'urgent'],
     );
     // Only the two fields with neither a default nor `.optional()` are required.
     expect([...(schema.required ?? [])].sort()).toEqual(['body', 'recipient_uuid']);
     expect(props.recipient_type).toMatchObject({ type: 'string', enum: ['chat', 'group'], default: 'chat' });
     expect(props.urgent).toMatchObject({ type: 'boolean', default: false });
     expect(props.body).toMatchObject({ type: 'string', minLength: 1 });
-    expect(props.confirm).toMatchObject({ type: 'boolean' });
+    expect(props.confirmToken).toMatchObject({ type: 'string' });
     for (const [field, spec] of Object.entries(props)) {
       expect(typeof spec.description, `${field} description`).toBe('string');
     }

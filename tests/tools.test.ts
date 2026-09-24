@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { createTestHarness, parseToolResult } from '@chrischall/mcp-utils/test';
 import { registerAccountTools } from '../src/tools/account.js';
 import { registerChatTools } from '../src/tools/chats.js';
@@ -67,26 +67,99 @@ describe('read tools', () => {
   });
 });
 
-describe('confirm-gated writes', () => {
-  it('remind_send_message makes NO network call without confirm', async () => {
+const accept = { elicitation: async () => ({ action: 'accept' as const, content: { confirmed: true } }) };
+const decline = { elicitation: async () => ({ action: 'decline' as const }) };
+
+interface Phase1 {
+  status: string;
+  confirmToken: string;
+  preview: Record<string, unknown>;
+}
+
+const SEND_ARGS = { recipient_uuid: 'c1', body: 'hi' };
+const SENT = { putMessage: { error: null, messages: [{ __typename: 'MessageItem' }] } };
+
+/** Phase 1 then phase 2 through a harness that cannot be prompted (the token flow). */
+async function sendViaToken(
+  graphql: ReturnType<typeof vi.fn>,
+  args: Record<string, unknown> = SEND_ARGS,
+) {
+  const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)));
+  const phase1 = parseToolResult<Phase1>(await h.callTool('remind_send_message', args));
+  return h.callTool('remind_send_message', { ...args, confirmToken: phase1.confirmToken });
+}
+
+describe('confirmed writes', () => {
+  const savedEnv = { ...process.env };
+  afterEach(() => {
+    process.env = { ...savedEnv };
+  });
+
+  it('remind_send_message phase 1 returns a preview and token and makes NO network call', async () => {
     const graphql = vi.fn();
     const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)));
-    const out = parseToolResult<{ dryRun: boolean; wouldSend: unknown }>(
-      await h.callTool('remind_send_message', { recipient_uuid: 'c1', body: 'hi' }),
-    );
+    const out = parseToolResult<Phase1>(await h.callTool('remind_send_message', SEND_ARGS));
     expect(graphql).not.toHaveBeenCalled();
-    expect(out.dryRun).toBe(true);
-    expect(out.wouldSend).toEqual({
+    expect(out.status).toBe('confirmation-required');
+    expect(typeof out.confirmToken).toBe('string');
+    expect(out.preview.wouldSend).toEqual({
       mutation: 'putMessage',
+      input: { recipients: [{ type: 'chat', uuid: 'c1' }], message: { body: 'hi', urgent: false } },
+    });
+    expect(out.preview.warning).toMatch(/cannot be unsent/);
+  });
+
+  it('remind_send_message phase 2 with the token sends exactly once', async () => {
+    const graphql = vi.fn(async () => SENT);
+    const res = await sendViaToken(graphql);
+    expect(res.isError).toBeFalsy();
+    expect(graphql).toHaveBeenCalledTimes(1);
+    expect(graphql.mock.calls[0][1]).toEqual({
       input: { recipients: [{ type: 'chat', uuid: 'c1' }], message: { body: 'hi', urgent: false } },
     });
   });
 
-  it('remind_send_message sends only with confirm:true', async () => {
-    const graphql = vi.fn(async () => ({ putMessage: { error: null, messages: [{ __typename: 'MessageItem' }] } }));
+  it('remind_send_message refuses a replayed token with TOKEN_REUSED and does not resend', async () => {
+    const graphql = vi.fn(async () => SENT);
     const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)));
-    await h.callTool('remind_send_message', { recipient_uuid: 'c1', body: 'hi', confirm: true });
+    const { confirmToken } = parseToolResult<Phase1>(await h.callTool('remind_send_message', SEND_ARGS));
+    await h.callTool('remind_send_message', { ...SEND_ARGS, confirmToken });
+    const replay = await h.callTool('remind_send_message', { ...SEND_ARGS, confirmToken });
+    expect(JSON.stringify(replay.content)).toMatch(/TOKEN_REUSED/);
     expect(graphql).toHaveBeenCalledTimes(1);
+  });
+
+  it('remind_send_message refuses a token when the body changed (DRAFT_CHANGED) and does not send', async () => {
+    const graphql = vi.fn(async () => SENT);
+    const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)));
+    const { confirmToken } = parseToolResult<Phase1>(await h.callTool('remind_send_message', SEND_ARGS));
+    const res = await h.callTool('remind_send_message', { ...SEND_ARGS, body: 'something else', confirmToken });
+    expect(JSON.stringify(res.content)).toMatch(/DRAFT_CHANGED/);
+    expect(graphql).not.toHaveBeenCalled();
+  });
+
+  it('remind_send_message sends when a promptable client accepts', async () => {
+    const graphql = vi.fn(async () => SENT);
+    const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)), accept);
+    const res = await h.callTool('remind_send_message', SEND_ARGS);
+    expect(res.isError).toBeFalsy();
+    expect(graphql).toHaveBeenCalledTimes(1);
+  });
+
+  it('remind_send_message does not send when a promptable client declines', async () => {
+    const graphql = vi.fn(async () => SENT);
+    const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)), decline);
+    await h.callTool('remind_send_message', SEND_ARGS);
+    expect(graphql).not.toHaveBeenCalled();
+  });
+
+  it('remind_send_message is refused under MCP_CONFIRM_MODE=refuse', async () => {
+    process.env.MCP_CONFIRM_MODE = 'refuse';
+    const graphql = vi.fn(async () => SENT);
+    const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)));
+    const out = parseToolResult<{ reason: string }>(await h.callTool('remind_send_message', SEND_ARGS));
+    expect(out.reason).toBe('confirmation-unsupported');
+    expect(graphql).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -95,16 +168,14 @@ describe('confirm-gated writes', () => {
     ['a null payload', { putMessage: null }, /no message/i],
   ])('remind_send_message reports a failed send (%s) as an error', async (_label, payload, pattern) => {
     const graphql = vi.fn(async () => payload);
-    const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)));
-    const res = await h.callTool('remind_send_message', { recipient_uuid: 'c1', body: 'hi', confirm: true });
+    const res = await sendViaToken(graphql);
     expect(res.isError).toBe(true);
     expect(JSON.stringify(res.content)).toMatch(pattern);
   });
 
   it('remind_send_message reports success with the sent messages', async () => {
-    const graphql = vi.fn(async () => ({ putMessage: { error: null, messages: [{ __typename: 'MessageItem' }] } }));
-    const h = await createTestHarness((s) => registerChatTools(s, stubClient(graphql)));
-    const res = await h.callTool('remind_send_message', { recipient_uuid: 'c1', body: 'hi', confirm: true });
+    const graphql = vi.fn(async () => SENT);
+    const res = await sendViaToken(graphql);
     expect(res.isError).toBeFalsy();
     expect(parseToolResult<{ sent: boolean; messages: unknown[] }>(res)).toEqual({
       sent: true,
@@ -112,17 +183,21 @@ describe('confirm-gated writes', () => {
     });
   });
 
-  it('remind_set_notification_devices previews without calling', async () => {
+  it('remind_set_notification_devices phase 1 previews without calling', async () => {
     const graphql = vi.fn();
     const h = await createTestHarness((s) => registerAccountTools(s, stubClient(graphql)));
-    const out = parseToolResult<{ dryRun: boolean }>(
-      await h.callTool('remind_set_notification_devices', { disable: [7] }),
+    const out = parseToolResult<Phase1>(
+      await h.callTool('remind_set_notification_devices', { enable: [3], disable: [7] }),
     );
     expect(graphql).not.toHaveBeenCalled();
-    expect(out.dryRun).toBe(true);
+    expect(out.status).toBe('confirmation-required');
+    expect(out.preview.wouldSend).toEqual({
+      mutation: 'updateAccountNotificationsScreen',
+      input: { devicesToEnable: [3], devicesToDisable: [7] },
+    });
   });
 
-  it('remind_set_notification_devices re-reads and reports observed state', async () => {
+  it('remind_set_notification_devices phase 2 applies once, re-reads and reports observed state', async () => {
     const graphql = vi
       .fn()
       .mockResolvedValueOnce({})
@@ -130,17 +205,24 @@ describe('confirm-gated writes', () => {
         accountNotificationsScreen: { devices: [{ id: 7, isEnabled: false }, { id: 8, isEnabled: true }] },
       });
     const h = await createTestHarness((s) => registerAccountTools(s, stubClient(graphql)));
-    const out = parseToolResult<{ verifiedState: unknown }>(
-      await h.callTool('remind_set_notification_devices', { disable: [7], confirm: true }),
+    const { confirmToken } = parseToolResult<Phase1>(
+      await h.callTool('remind_set_notification_devices', { disable: [7] }),
     );
+    expect(graphql).not.toHaveBeenCalled();
+    const out = parseToolResult<{ verifiedState: unknown }>(
+      await h.callTool('remind_set_notification_devices', { disable: [7], confirmToken }),
+    );
+    // Exactly one mutation, then the verifying re-read.
+    expect(graphql).toHaveBeenCalledTimes(2);
+    expect(graphql.mock.calls[0][1]).toEqual({ input: { devicesToDisable: [7] } });
     // Only the touched device is reported, and the value is the RE-READ one.
     expect(out.verifiedState).toEqual([{ id: 7, isEnabled: false }]);
   });
 
   it('remind_set_notification_devices refuses an empty change set', async () => {
     const graphql = vi.fn();
-    const h = await createTestHarness((s) => registerAccountTools(s, stubClient(graphql)));
-    const res = await h.callTool('remind_set_notification_devices', { confirm: true });
+    const h = await createTestHarness((s) => registerAccountTools(s, stubClient(graphql)), accept);
+    const res = await h.callTool('remind_set_notification_devices', {});
     expect(res.isError).toBe(true);
     expect(graphql).not.toHaveBeenCalled();
   });

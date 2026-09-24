@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/server';
-import { McpToolError, minifiedResult, schemaConfirm, toolAnnotations } from '@chrischall/mcp-utils';
+import {
+  McpToolError,
+  confirmTokenParam,
+  confirmationFromEnv,
+  minifiedResult,
+  requireConfirmationWithFallback,
+  toolAnnotations,
+} from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
 import { CHAT_MESSAGES, CHAT_STREAMS, PUT_MESSAGE } from '../queries.js';
 
@@ -55,9 +62,10 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
     'remind_send_message',
     {
       description:
-        'Send a message to a chat stream or class. Delivers to real people and CANNOT be unsent, so it is ' +
-        'confirm-gated: without confirm:true it makes NO network call and returns a dry-run preview of the ' +
-        'exact payload. Check `permissions.canSend` on the target first (remind_list_chats).',
+        'Send a message to a chat stream or class. Delivers to real people and CANNOT be unsent. ' +
+        'Nothing is sent until confirmed; the preview shows the exact payload. ' +
+        'Asks the user to confirm first: a confirmation prompt where the client supports one; otherwise the first call returns a preview and a confirmToken, and only a repeat call with that token proceeds (see MCP_CONFIRM_MODE). ' +
+        'Check `permissions.canSend` on the target first (remind_list_chats).',
       annotations: toolAnnotations({ title: 'Remind send message', readOnly: false, destructive: true }),
       inputSchema: z.object({
         recipient_uuid: z.string().describe('Chat stream uuid, or class uuid.'),
@@ -67,21 +75,31 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
           .describe('`chat` for a conversation stream, `group` for a whole class.'),
         body: z.string().min(1).describe('Message text.'),
         urgent: z.boolean().default(false).describe('Send as an urgent message.'),
-        confirm: schemaConfirm,
+        confirmToken: confirmTokenParam,
       }),
     },
-    async ({ recipient_uuid, recipient_type, body, urgent, confirm }) => {
+    async ({ recipient_uuid, recipient_type, body, urgent, confirmToken }, ctx) => {
       const input = {
         recipients: [{ type: recipient_type, uuid: recipient_uuid }],
         message: { body, urgent },
       };
-      if (!confirm) {
-        return minifiedResult({
-          dryRun: true,
-          wouldSend: { mutation: 'putMessage', input },
-          warning: 'This delivers to real recipients and cannot be unsent. Re-run with confirm: true.',
-        });
-      }
+      const wouldSend = { mutation: 'putMessage', input };
+      const gate = await requireConfirmationWithFallback(
+        ctx,
+        confirmationFromEnv({
+          action: 'chat.send_message',
+          message: 'Review and confirm this message. It delivers to real recipients and cannot be unsent:',
+          details: wouldSend,
+          tool: 'remind_send_message',
+          confirmToken,
+          subject: () => ({
+            target: recipient_uuid,
+            payload: wouldSend,
+            preview: { wouldSend, warning: 'This delivers to real recipients and cannot be unsent.' },
+          }),
+        }),
+      );
+      if (gate) return gate;
       // A refused send (canSend=false, unknown recipient, blocked…) comes back as
       // HTTP 200 data with `putMessage.error` populated, not as GraphQL
       // `errors`, so the client does not throw on it. Surface it as a tool
