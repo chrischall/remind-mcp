@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.1.3...remind-mcp-v1.2.0) (2026-09-24)
+
+
+### Features
+
+* confirm writes with a preview token instead of confirm: true ([#67](https://github.com/chrischall/remind-mcp/issues/67)) ([fb7b98c](https://github.com/chrischall/remind-mcp/commit/fb7b98c000efd043a63759967974a50de9fa1cba))
+
+
+### Bug Fixes
+
+* **graphql:** describe the write tools as preview-and-confirm, not confirm-gated ([#70](https://github.com/chrischall/remind-mcp/issues/70)) ([e684bae](https://github.com/chrischall/remind-mcp/commit/e684baefff2cdda8ffd1de5ba0eae3bd954d6fcb))
+
 ## [1.1.3](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.1.2...remind-mcp-v1.1.3) (2026-09-23)
 
 
