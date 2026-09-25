@@ -357,6 +357,36 @@ describe('account binding and expiry of the cached session', () => {
     expect(probes).toHaveLength(1);
   });
 
+  it('keeps an unverifiable restored session on a transient probe failure, then verifies it next call', async () => {
+    const sessionFile = tmpFile('remind-blip-');
+    await writeRecord(sessionFile, { ...SESSION, accountUuid: 'u1' }, Date.now());
+    const { readFileSync } = await import('node:fs');
+    const before = readFileSync(sessionFile, 'utf8');
+    const healthy = fetchByCookie({ [SESSION.cookie]: 'u1' });
+    let down = true;
+    const fetchImpl = vi.fn(async (url: string, init: RequestInit) => {
+      if (down) throw Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNRESET' } });
+      return healthy(url, init);
+    });
+    const captureSession = vi.fn(capture);
+    const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession, sessionFile });
+
+    // The blip is reported as a verification failure — neither the caller's
+    // query nor a browser re-capture is attempted, and the cache is untouched.
+    const err = await client.graphql('{ classes { uuid } }').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toMatch(/Could not verify the cached Remind session/);
+    expect((err as Error).message).toMatch(/ECONNRESET/);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(captureSession).not.toHaveBeenCalled();
+    expect(readFileSync(sessionFile, 'utf8')).toBe(before);
+
+    // Once the network is back, the same cached session verifies and is used.
+    down = false;
+    await expect(client.graphql('{ classes { uuid } }')).resolves.toEqual({ classes: [] });
+    expect(captureSession).not.toHaveBeenCalled();
+  });
+
   it('re-captures a cached session older than the max age', async () => {
     const sessionFile = tmpFile('remind-stale-');
     await writeRecord(sessionFile, { ...SESSION, accountUuid: 'u1' }, Date.now() - SESSION_MAX_AGE_MS - 60_000);
