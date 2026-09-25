@@ -192,7 +192,19 @@ export class RemindClient {
     // still authenticates as the account it was captured for. Anything else —
     // another account, or no account — is treated as expiry and re-captured.
     if (session.accountUuid && !this.verified.has(session)) {
-      const probe = await this.post<{ me?: { uuid?: string } | null }>(session, ME_PROBE, {});
+      let probe: GraphQLResponse<{ me?: { uuid?: string } | null }>;
+      try {
+        probe = await this.post(session, ME_PROBE, {});
+      } catch (err) {
+        // Could not tell (network blip, interstitial). Like the probe below, keep
+        // the session rather than discard a valid cache — but it stays unverified,
+        // so the caller's query is not sent on it; the next call probes again.
+        // Re-capturing here would need the browser mid-outage and drop the cache.
+        throw new McpToolError(
+          `Could not verify the cached Remind session: ${(err as Error).message}`,
+          { cause: err, hint: 'The session was kept; retry once remind.com is reachable.' },
+        );
+      }
       if (probe.data?.me?.uuid !== session.accountUuid) {
         return { res: { errors: [{ message: 'Unauthorized' }] }, expired: true };
       }
