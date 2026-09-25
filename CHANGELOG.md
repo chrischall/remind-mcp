@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.0...remind-mcp-v1.2.1) (2026-09-25)
+
+
+### Bug Fixes
+
+* **session:** bind the cached Remind session to its account and expire it ([#74](https://github.com/chrischall/remind-mcp/issues/74)) ([47a401a](https://github.com/chrischall/remind-mcp/commit/47a401acfe3554f5e9bf42b9e82515a874268988))
+* **session:** report a network failure while verifying the cached session clearly ([#77](https://github.com/chrischall/remind-mcp/issues/77)) ([d94f2de](https://github.com/chrischall/remind-mcp/commit/d94f2de8df1fc6de041f5aa646b1c7d82c84f1f7))
+
 ## [1.2.0](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.1.3...remind-mcp-v1.2.0) (2026-09-24)
 
 
