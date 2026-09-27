@@ -26,7 +26,7 @@ npx -y @chrischall/remind-mcp
 ## Authentication
 
 Two headers are captured from a signed-in `remind.com` tab: the full `Cookie` header and the
-`x-csrf-token` value. Either let the bridge capture them (needs the **Transporter** Chrome
+`x-csrf-token` value. Either let the bridge capture them (needs the **ContextMint Bridge** browser
 extension and a signed-in tab), or supply them yourself:
 
 | Variable | Required | Description |
@@ -35,6 +35,11 @@ extension and a signed-in tab), or supply them yourself:
 | `REMIND_CSRF_TOKEN` | no | Captured `x-csrf-token` value. |
 | `REMIND_WS_PORT` | no | fetchproxy bridge concentrator port (default `37149`). |
 | `REMIND_SESSION_FILE` | no | Where the captured session is cached. Defaults to `$MCP_DATA_DIR`/`$HOME` under `.remind-mcp`. |
+
+Install ContextMint Bridge from its
+[releases page](https://github.com/nullnet-app/contextmint-bridge/releases): in Chrome, unzip the
+Chrome build and load it unpacked (`chrome://extensions` → Developer mode → **Load unpacked**); on
+Safari it ships inside the ContextMint app.
 
 The server boots without either, so a host's install-time `tools/list` probe succeeds; the
 error surfaces on the first tool call instead.

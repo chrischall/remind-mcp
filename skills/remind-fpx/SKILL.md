@@ -27,7 +27,9 @@ is the only route**.
 
 ## One-time setup
 
-Install `@fetchproxy/cli` (`npm i -g @fetchproxy/cli`) and the **Transporter** Chrome extension.
+Install `@fetchproxy/cli` (`npm i -g @fetchproxy/cli`) and the **ContextMint Bridge**
+browser extension from https://github.com/nullnet-app/contextmint-bridge/releases (Chrome: load
+the Chrome zip unpacked; Safari: ships inside the ContextMint app).
 
 Declare the full scope **before** the first pairing — widening it later forces a re-pair:
 
@@ -42,7 +44,7 @@ Then capture. The capture waits for the *next* request the page makes, so **load
 while it waits**:
 
 ```bash
-fpx session -p remind > ~/.remind-fpx-session.json &   # approve the pair code in Transporter
+fpx session -p remind > ~/.remind-fpx-session.json &   # approve the pair code in ContextMint Bridge
 open "https://www.remind.com/"                          # feeds the capture
 wait
 chmod 600 ~/.remind-fpx-session.json

@@ -70,7 +70,7 @@ describe('remindBootstrapOpts', () => {
   });
 
   it('pins the shared fleet concentrator port', () => {
-    // The Transporter extension dials ONE port for the whole fleet.
+    // The ContextMint Bridge extension dials ONE port for the whole fleet.
     expect(DEFAULT_WS_PORT).toBe(37_149);
   });
 });
