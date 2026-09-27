@@ -7,7 +7,7 @@ manage notification settings.
 
 Remind exposes a single GraphQL endpoint that is reachable server-side, so only the
 *credential* needs a browser: the session is lifted once from a signed-in tab through the
-fetchproxy bridge, and every request after that is a plain server-side fetch.
+ContextMint Bridge browser extension, and every request after that is a plain server-side fetch.
 
 ## Install
 
@@ -38,8 +38,15 @@ extension and a signed-in tab), or supply them yourself:
 
 Install ContextMint Bridge from its
 [releases page](https://github.com/nullnet-app/contextmint-bridge/releases): in Chrome, unzip the
-Chrome build and load it unpacked (`chrome://extensions` → Developer mode → **Load unpacked**); on
-Safari it ships inside the ContextMint app.
+Chrome build and load it unpacked (`chrome://extensions` → Developer mode → **Load unpacked**).
+Safari isn't available yet (it will ship inside the ContextMint app, which has no public download),
+so use Chrome for now.
+
+ContextMint Bridge is the fetchproxy browser extension under its new name, from the same
+maintainer — fetchproxy's own [README](https://github.com/chrischall/fetchproxy#extension) points
+to it. Its source is public at https://github.com/nullnet-app/contextmint-bridge: build it
+yourself, or check a release zip against the `.sha256` file published beside it
+(`shasum -a 256 -c contextmint-bridge-chrome-<version>.zip.sha256`).
 
 The server boots without either, so a host's install-time `tools/list` probe succeeds; the
 error surfaces on the first tool call instead.

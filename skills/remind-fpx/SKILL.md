@@ -29,7 +29,8 @@ is the only route**.
 
 Install `@fetchproxy/cli` (`npm i -g @fetchproxy/cli`) and the **ContextMint Bridge**
 browser extension from https://github.com/nullnet-app/contextmint-bridge/releases (Chrome: load
-the Chrome zip unpacked; Safari: ships inside the ContextMint app).
+the Chrome zip unpacked; Safari isn't available yet, so use Chrome for now).
+It's the fetchproxy extension under its new name, same maintainer; source is public there — build it or verify the zip with `shasum -a 256 -c contextmint-bridge-chrome-<version>.zip.sha256`.
 
 Declare the full scope **before** the first pairing — widening it later forces a re-pair:
 
