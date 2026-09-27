@@ -24,7 +24,7 @@ env:
     required: false
     help: >-
       Captured Cookie request header from a signed-in remind.com tab. Optional:
-      the fetchproxy bridge captures it automatically when absent.
+      the ContextMint Bridge extension captures it automatically when absent.
   - name: REMIND_CSRF_TOKEN
     secret: true
     required: false
