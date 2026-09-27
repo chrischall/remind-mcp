@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.2](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.1...remind-mcp-v1.2.2) (2026-09-27)
+
+
+### Bug Fixes
+
+* **deps:** move to [@fetchproxy](https://github.com/fetchproxy) 3.4 for ContextMint Bridge errors, capability subsets and managed pins ([#78](https://github.com/chrischall/remind-mcp/issues/78)) ([0015f42](https://github.com/chrischall/remind-mcp/commit/0015f429efbf2d132a835873ebee00ae6a42638d))
+* **deps:** move to @chrischall/mcp-utils 2.8 and [@fetchproxy](https://github.com/fetchproxy) 3.4.1 for clearer browser-bridge errors ([#80](https://github.com/chrischall/remind-mcp/issues/80)) ([af0e294](https://github.com/chrischall/remind-mcp/commit/af0e2943a54713e1cce45efe6dfc9ddd89513546))
+
 ## [1.2.1](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.0...remind-mcp-v1.2.1) (2026-09-25)
 
 
