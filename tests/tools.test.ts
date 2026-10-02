@@ -102,7 +102,7 @@ describe('confirmed writes', () => {
     expect(graphql).not.toHaveBeenCalled();
     expect(out.status).toBe('confirmation-required');
     expect(typeof out.confirmToken).toBe('string');
-    expect(out.preview.wouldSend).toEqual({
+    expect(out.preview.willSend).toEqual({
       mutation: 'putMessage',
       input: { recipients: [{ type: 'chat', uuid: 'c1' }], message: { body: 'hi', urgent: false } },
     });
@@ -191,7 +191,7 @@ describe('confirmed writes', () => {
     );
     expect(graphql).not.toHaveBeenCalled();
     expect(out.status).toBe('confirmation-required');
-    expect(out.preview.wouldSend).toEqual({
+    expect(out.preview.willSend).toEqual({
       mutation: 'updateAccountNotificationsScreen',
       input: { devicesToEnable: [3], devicesToDisable: [7] },
     });
