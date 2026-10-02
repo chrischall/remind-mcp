@@ -2,7 +2,9 @@ import { z } from 'zod';
 import { Kind, parse } from 'graphql';
 import type { McpServer } from '@modelcontextprotocol/server';
 import { McpToolError, minifiedResult, toolAnnotations } from '@chrischall/mcp-utils';
-import type { RemindClient } from '../client.js';
+import { runCredentialHealthcheck } from '@chrischall/mcp-utils/healthcheck';
+import { RemindUnauthorizedError, type RemindClient } from '../client.js';
+import { REMIND_HOST, sessionFromEnv } from '../session.js';
 import { ME } from '../queries.js';
 
 /**
@@ -65,13 +67,37 @@ export function registerRawTools(server: McpServer, client: RemindClient): void 
     {
       description:
         'Verify the Remind session end-to-end by running the smallest authenticated query. Reports whether ' +
-        'the captured browser session still authenticates.',
+        'the captured browser session still authenticates, and when it does not, which hop broke as ' +
+        '`error.kind`: no_credential (no session could be captured), credential_rejected (Remind refused ' +
+        'the session), edge_blocked (a CDN/WAF refused the request before Remind saw it — re-signing in ' +
+        'will not help), http, timeout or transport. Read-only; never returns the cookie or CSRF token.',
       annotations: toolAnnotations({ title: 'Remind healthcheck', readOnly: true, idempotent: true }),
       inputSchema: z.object({}),
     },
     async () => {
-      const data = await client.graphql<{ me: { uuid: string } | null }>(ME);
-      return minifiedResult({ ok: Boolean(data.me?.uuid), account: data.me });
+      let account: { uuid: string } | null = null;
+      const result = await runCredentialHealthcheck({
+        server,
+        prefix: 'remind',
+        hostLabel: REMIND_HOST,
+        probePath: '/graphql',
+        // The session itself is resolved lazily by the probe (env, cache, then
+        // the browser bridge) exactly as every real tool resolves it.
+        resolveCredential: async () => ({ source: sessionFromEnv() ? 'env' : 'browser-session' }),
+        probeFn: async () => {
+          const data = await client.graphql<{ me: { uuid: string } | null }>(ME);
+          if (!data.me?.uuid) {
+            throw new RemindUnauthorizedError('Remind answered without an account; the session is not signed in.');
+          }
+          account = data.me;
+        },
+        classifyThrown: (err) =>
+          err instanceof McpToolError && /bootstrap captured no/i.test(err.message)
+            ? { kind: 'no_credential', hint: err.hint }
+            : undefined,
+      });
+      const body = JSON.parse(result.content[0].text) as Record<string, unknown>;
+      return minifiedResult({ ...body, account });
     },
   );
 }
