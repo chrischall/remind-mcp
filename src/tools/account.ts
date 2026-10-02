@@ -61,6 +61,7 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
         tool: 'remind_set_notification_devices',
         action: 'notifications.set_devices',
         message: 'Review and confirm this notification device change:',
+        // One signed-in Remind session per server process.
         account: undefined,
         payload: { mutation: 'updateAccountNotificationsScreen', input },
         confirmToken,
