@@ -3,9 +3,9 @@ import type { McpServer } from '@modelcontextprotocol/server';
 import {
   McpToolError,
   confirmTokenParam,
-  confirmationFromEnv,
+  confirmWrite,
+  CONFIRM_FLOW_SENTENCE,
   minifiedResult,
-  requireConfirmationWithFallback,
   toolAnnotations,
 } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
@@ -64,7 +64,7 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
       description:
         'Send a message to a chat stream or class. Delivers to real people and CANNOT be unsent. ' +
         'Nothing is sent until confirmed; the preview shows the exact payload. ' +
-        'Asks the user to confirm first: a confirmation prompt where the client supports one; otherwise the first call returns a preview and a confirmToken, and only a repeat call with that token proceeds (see MCP_CONFIRM_MODE). ' +
+        CONFIRM_FLOW_SENTENCE + ' ' +
         'Check `permissions.canSend` on the target first (remind_list_chats).',
       annotations: toolAnnotations({ title: 'Remind send message', readOnly: false, destructive: true }),
       inputSchema: z.object({
@@ -83,22 +83,17 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
         recipients: [{ type: recipient_type, uuid: recipient_uuid }],
         message: { body, urgent },
       };
-      const wouldSend = { mutation: 'putMessage', input };
-      const gate = await requireConfirmationWithFallback(
-        ctx,
-        confirmationFromEnv({
-          action: 'chat.send_message',
-          message: 'Review and confirm this message. It delivers to real recipients and cannot be unsent:',
-          details: wouldSend,
-          tool: 'remind_send_message',
-          confirmToken,
-          subject: () => ({
-            target: recipient_uuid,
-            payload: wouldSend,
-            preview: { wouldSend, warning: 'This delivers to real recipients and cannot be unsent.' },
-          }),
-        }),
-      );
+      const gate = await confirmWrite(ctx, {
+        tool: 'remind_send_message',
+        action: 'chat.send_message',
+        message: 'Review and confirm this message. It delivers to real recipients and cannot be unsent:',
+        // One signed-in Remind session per server process.
+        account: undefined,
+        target: recipient_uuid,
+        payload: { mutation: 'putMessage', input },
+        preview: { warning: 'This delivers to real recipients and cannot be unsent.' },
+        confirmToken,
+      });
       if (gate) return gate;
       // A refused send (canSend=false, unknown recipient, blocked…) comes back as
       // HTTP 200 data with `putMessage.error` populated, not as GraphQL

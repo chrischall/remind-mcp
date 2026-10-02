@@ -3,9 +3,9 @@ import type { McpServer } from '@modelcontextprotocol/server';
 import {
   McpToolError,
   confirmTokenParam,
-  confirmationFromEnv,
+  confirmWrite,
+  CONFIRM_FLOW_SENTENCE,
   minifiedResult,
-  requireConfirmationWithFallback,
   toolAnnotations,
 } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
@@ -42,7 +42,7 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
       description:
         'Enable or disable notification delivery devices by id (from remind_get_notification_settings). ' +
         'Nothing is sent until confirmed; the preview shows the exact mutation input. ' +
-        'Asks the user to confirm first: a confirmation prompt where the client supports one; otherwise the first call returns a preview and a confirmToken, and only a repeat call with that token proceeds (see MCP_CONFIRM_MODE).',
+        CONFIRM_FLOW_SENTENCE,
       annotations: toolAnnotations({ title: 'Remind set notification devices', readOnly: false, destructive: false }),
       inputSchema: z.object({
         enable: z.array(z.number().int()).optional().describe('Device ids to enable.'),
@@ -57,18 +57,14 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
       if (!Object.keys(input).length) {
         throw new McpToolError('Nothing to do: pass at least one device id in `enable` or `disable`.');
       }
-      const wouldSend = { mutation: 'updateAccountNotificationsScreen', input };
-      const gate = await requireConfirmationWithFallback(
-        ctx,
-        confirmationFromEnv({
-          action: 'notifications.set_devices',
-          message: 'Review and confirm this notification device change:',
-          details: wouldSend,
-          tool: 'remind_set_notification_devices',
-          confirmToken,
-          subject: () => ({ target: '', payload: wouldSend, preview: { wouldSend } }),
-        }),
-      );
+      const gate = await confirmWrite(ctx, {
+        tool: 'remind_set_notification_devices',
+        action: 'notifications.set_devices',
+        message: 'Review and confirm this notification device change:',
+        account: undefined,
+        payload: { mutation: 'updateAccountNotificationsScreen', input },
+        confirmToken,
+      });
       if (gate) return gate;
       await client.graphql(UPDATE_NOTIFICATIONS, { input });
       // A 200 is not proof: re-read and report the devices' observed state.
