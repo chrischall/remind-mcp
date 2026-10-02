@@ -1,4 +1,4 @@
-import { McpToolError, truncateErrorMessage } from '@chrischall/mcp-utils';
+import { EdgeBlockedError, McpToolError, detectEdgeBlock, truncateErrorMessage } from '@chrischall/mcp-utils';
 import {
   CookieSessionManager,
   createFileStatePersistence,
@@ -35,6 +35,27 @@ export function isUnauthorized(res: GraphQLResponse): boolean {
   return (res.errors ?? []).some(
     (e) => e.message === 'Unauthorized' || e.extensions?.code === 'unauthorized',
   );
+}
+
+/**
+ * Remind refused the session itself — the replay after a re-capture was still
+ * `Unauthorized`. Carries 401 so the healthcheck ladder reads it as
+ * `credential_rejected`; Remind itself answers these with HTTP 200.
+ */
+export class RemindUnauthorizedError extends McpToolError {
+  readonly status = 401;
+  constructor(hint: string) {
+    super('Remind rejected the request as unauthorized.', { hint });
+    this.name = 'RemindUnauthorizedError';
+  }
+}
+
+/** A non-2xx from /graphql with no GraphQL error body; carries the status. */
+export class RemindHttpError extends McpToolError {
+  constructor(readonly status: number) {
+    super(`Remind GraphQL HTTP ${status}.`);
+    this.name = 'RemindHttpError';
+  }
 }
 
 type Fetch = typeof globalThis.fetch;
@@ -161,12 +182,11 @@ export class RemindClient {
     if (res.errors?.length) {
       const first = res.errors[0];
       if (isUnauthorized(res)) {
-        throw new McpToolError('Remind rejected the request as unauthorized.', {
-          hint:
-            'Either the captured session expired, or this account lacks access to that data ' +
+        throw new RemindUnauthorizedError(
+          'Either the captured session expired, or this account lacks access to that data ' +
             '(scheduled messages and org admin queries are owner/teacher-only). ' +
             `Open ${REMIND_ORIGIN} in Chrome while signed in and retry.`,
-        });
+        );
       }
       throw new McpToolError(
         truncateErrorMessage(`Remind GraphQL error: ${first.message}`),
@@ -196,6 +216,9 @@ export class RemindClient {
       try {
         probe = await this.post(session, ME_PROBE, {});
       } catch (err) {
+        // A CDN/WAF block says nothing about the session either; surface it as
+        // what it is rather than as a failed verification.
+        if (err instanceof EdgeBlockedError) throw err;
         // Could not tell (network blip, interstitial). Like the probe below, keep
         // the session rather than discard a valid cache — but it stays unverified,
         // so the caller's query is not sent on it; the next call probes again.
@@ -251,6 +274,14 @@ export class RemindClient {
       );
     }
     const text = await response.text();
+    // A CDN/WAF refusal page is not Remind's answer: the session was never
+    // judged, so it must not read as "signed out" (which sends someone to
+    // re-capture a session that is fine). Thrown, not returned as expired, so
+    // the session manager keeps the session (chrischall/mcp-host#1015).
+    const edge = detectEdgeBlock({ body: text, headers: response.headers, status: response.status });
+    if (edge) {
+      throw new EdgeBlockedError(response.status, edge.vendor, { service: 'Remind', method: 'POST', path: '/graphql' });
+    }
     let parsed: GraphQLResponse<T>;
     try {
       parsed = JSON.parse(text) as GraphQLResponse<T>;
@@ -262,7 +293,7 @@ export class RemindClient {
       );
     }
     if (!response.ok && !parsed.errors) {
-      throw new McpToolError(`Remind GraphQL HTTP ${response.status}.`);
+      throw new RemindHttpError(response.status);
     }
     return parsed;
   }

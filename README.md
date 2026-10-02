@@ -75,7 +75,7 @@ restored from the cache.
 | `remind_set_notification_devices` | Enable/disable delivery devices. **Asks you to confirm first.** |
 | `remind_send_message` | Send to a chat or class. **Asks you to confirm first.** |
 | `remind_graphql` | Arbitrary read-only GraphQL; introspection is enabled. Mutations refused. |
-| `remind_healthcheck` | Verify the session still authenticates. |
+| `remind_healthcheck` | Verify the session still authenticates; on failure `error.kind` names the broken hop (`no_credential`, `credential_rejected`, `edge_blocked`, `http`, `timeout`, `transport`). |
 
 ## Confirmations
 
