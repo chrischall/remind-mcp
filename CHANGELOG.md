@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.2.3](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.2...remind-mcp-v1.2.3) (2026-10-03)
+
+
+### Bug Fixes
+
+* **deps:** adopt @chrischall/mcp-utils 2.12.0 confirmWrite ([#88](https://github.com/chrischall/remind-mcp/issues/88)) ([0b7ae97](https://github.com/chrischall/remind-mcp/commit/0b7ae97f52c74a2f225f1511a51c8822a62a4e0b))
+* **deps:** bump @chrischall/mcp-utils to 2.10.0 ([#86](https://github.com/chrischall/remind-mcp/issues/86)) ([ed96ad8](https://github.com/chrischall/remind-mcp/commit/ed96ad8bf6c82f0b7d4a1451962025a2531ae5b4))
+* **deps:** bump @chrischall/mcp-utils to 2.13.0 ([#92](https://github.com/chrischall/remind-mcp/issues/92)) ([a9f6638](https://github.com/chrischall/remind-mcp/commit/a9f6638f66c76823b94b627fbae8fd5616d00067))
+* **deps:** Bump the production-dependencies group with 3 updates ([#83](https://github.com/chrischall/remind-mcp/issues/83)) ([c4ceae1](https://github.com/chrischall/remind-mcp/commit/c4ceae10b27ebbe79b6deae9c00ef1400bf19f1c))
+* **healthcheck:** report why remind_healthcheck failed, including CDN/WAF blocks ([#91](https://github.com/chrischall/remind-mcp/issues/91)) ([121f34d](https://github.com/chrischall/remind-mcp/commit/121f34dcefb98bef13e8e4646cf3872465cbf693))
+* keep write approvals valid across a hosted restart (mcp-utils 2.11.0) ([#87](https://github.com/chrischall/remind-mcp/issues/87)) ([803c185](https://github.com/chrischall/remind-mcp/commit/803c18533fc1fcc86eaf75985eea22b47b78339e))
+* report CDN/WAF blocks as edge_blocked, not a rejected credential (mcp-utils 2.9.0) ([#85](https://github.com/chrischall/remind-mcp/issues/85)) ([4658a8f](https://github.com/chrischall/remind-mcp/commit/4658a8f99c8d89303571ba28d586a00393d3f085))
+
+
+### Documentation
+
+* **tools:** note why set_notification_devices binds no account ([#90](https://github.com/chrischall/remind-mcp/issues/90)) ([8ca02a5](https://github.com/chrischall/remind-mcp/commit/8ca02a5a7d1625b0ab4c160249b9872a4b9a90e6))
+
 ## [1.2.2](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.1...remind-mcp-v1.2.2) (2026-09-27)
 
 
