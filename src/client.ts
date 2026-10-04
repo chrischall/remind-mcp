@@ -90,7 +90,12 @@ export interface RemindClientOpts {
    * Replace only the transport the bootstrap lifts headers from, keeping the
    * real capture logic. Ignored when {@link captureSession} is also given.
    */
-  transportFactory?: () => Promise<{ server: HeaderCapturer; close: () => Promise<void> }>;
+  transportFactory?: () => Promise<{
+    server: HeaderCapturer;
+    /** Loads the bridge identity (`FetchproxyServer.listen()`); required before any capture. */
+    start: () => Promise<void>;
+    close: () => Promise<void>;
+  }>;
   /**
    * Where the captured session is cached between runs. Defaults to
    * `$MCP_DATA_DIR`/`$HOME`; pass `null` to disable persistence entirely
@@ -152,6 +157,11 @@ export class RemindClient {
   private async bootstrapViaBridge(): Promise<RemindSession> {
     const transport = await this.transportFactory();
     try {
+      // `@fetchproxy/server` refuses every verb ("ensureConnected called
+      // before listen()") until listen() has loaded the bridge identity, and
+      // the transport's start() is what calls it. The port still binds lazily
+      // on the capture itself, so starting here costs nothing at boot.
+      await transport.start();
       return await captureRemindHeaders(transport.server);
     } finally {
       await transport.close().catch(() => {});

@@ -192,6 +192,7 @@ describe('bridge bootstrap', () => {
     const transportFactory = vi.fn(async () => ({
       server: { captureRequestHeader: async ({ headerName }: { headerName: string }) =>
         headerName === 'cookie' ? 'a=1' : 'tok' },
+      start: async () => {},
       close,
     }));
     const fetchImpl = vi.fn(async () => jsonOk());
@@ -205,10 +206,34 @@ describe('bridge bootstrap', () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 
+  it('starts the transport (listen) before capturing, as FetchproxyServer requires', async () => {
+    // Mirrors @fetchproxy/server's contract: every verb runs ensureConnected(),
+    // which throws unless listen() — the transport's start() — loaded the
+    // identity first. Skipping start() is what the live healthcheck reported.
+    let listening = false;
+    const guard = (headerName: string) => {
+      if (!listening) {
+        throw new Error('FetchproxyServer: ensureConnected called before listen() — call listen() at MCP boot to load identity');
+      }
+      return headerName === 'cookie' ? 'a=1' : 'tok';
+    };
+    const close = vi.fn(async () => {});
+    const transportFactory = vi.fn(async () => ({
+      server: { captureRequestHeader: async ({ headerName }: { headerName: string }) => guard(headerName) },
+      start: vi.fn(async () => { listening = true; }),
+      close,
+    }));
+    const fetchImpl = vi.fn(async () => jsonOk());
+    const client = new RemindClient({ fetchImpl: fetchImpl as never, transportFactory, sessionFile: null });
+    await expect(client.graphql('{ me { uuid } }')).resolves.toEqual({ me: { uuid: 'u1' } });
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
   it('closes the transport even when the capture fails', async () => {
     const close = vi.fn(async () => {});
     const transportFactory = vi.fn(async () => ({
       server: { captureRequestHeader: async () => { throw new Error('bridge down'); } },
+      start: async () => {},
       close,
     }));
     const client = new RemindClient({ fetchImpl: vi.fn() as never, transportFactory, sessionFile: null });
