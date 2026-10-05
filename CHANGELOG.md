@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.4](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.3...remind-mcp-v1.2.4) (2026-10-05)
+
+
+### Bug Fixes
+
+* **bridge:** start the browser bridge before capturing the Remind session ([#93](https://github.com/chrischall/remind-mcp/issues/93)) ([433b949](https://github.com/chrischall/remind-mcp/commit/433b949986c76f2451f6251802ab86cc98a34918))
+* **deps:** require @chrischall/mcp-utils 2.14.0 and MCP SDK 2.3.0 ([#95](https://github.com/chrischall/remind-mcp/issues/95)) ([99f558e](https://github.com/chrischall/remind-mcp/commit/99f558e95fdf2b47afd8c1585946f4044c74aaea))
+
 ## [1.2.3](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.2...remind-mcp-v1.2.3) (2026-10-03)
 
 
