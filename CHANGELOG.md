@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.5](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.4...remind-mcp-v1.2.5) (2026-10-07)
+
+
+### Bug Fixes
+
+* **deps:** pick up fetchproxy approval-retry and frame-validation fixes and mcp-utils elicitation opt-out ([#96](https://github.com/chrischall/remind-mcp/issues/96)) ([102a9ec](https://github.com/chrischall/remind-mcp/commit/102a9ec82f62d1198a2c5e2be99c58a09f29b2f7))
+
+
+### Documentation
+
+* document MCP_CONFIRM_ELICITATION ([#98](https://github.com/chrischall/remind-mcp/issues/98)) ([79338d0](https://github.com/chrischall/remind-mcp/commit/79338d05e30ee865e6e748eb4afb47fc50337855))
+
 ## [1.2.4](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.3...remind-mcp-v1.2.4) (2026-10-05)
 
 
