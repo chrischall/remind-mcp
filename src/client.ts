@@ -1,4 +1,10 @@
-import { EdgeBlockedError, McpToolError, detectEdgeBlock, truncateErrorMessage } from '@chrischall/mcp-utils';
+import {
+  EdgeBlockedError,
+  McpToolError,
+  detectEdgeBlock,
+  truncateErrorMessage,
+  withAmbientCancellation,
+} from '@chrischall/mcp-utils';
 import {
   CookieSessionManager,
   createFileStatePersistence,
@@ -67,6 +73,13 @@ type Fetch = typeof globalThis.fetch;
  * session it was lifted from indefinitely.
  */
 export const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Upper bound on one GraphQL round-trip. Without it a stalled connection hangs
+ * the tool (and the `me` probe that decides expiry) until the MCP client gives
+ * up; the caller's own cancellation is honoured on top of it.
+ */
+export const GRAPHQL_TIMEOUT_MS = 30_000;
 
 /** One GraphQL round-trip plus the verdict on whether it proved the session dead. */
 interface Attempt {
@@ -275,8 +288,15 @@ export class RemindClient {
           'x-csrf-token': session.csrfToken,
         },
         body: JSON.stringify({ query, variables }),
+        signal: withAmbientCancellation(AbortSignal.timeout(GRAPHQL_TIMEOUT_MS)),
       });
     } catch (err) {
+      if ((err as { name?: string })?.name === 'TimeoutError') {
+        throw new McpToolError(
+          `${REMIND_ORIGIN}/graphql did not answer within ${GRAPHQL_TIMEOUT_MS / 1000}s.`,
+          { cause: err, hint: 'remind.com is slow or unreachable; retry shortly.' },
+        );
+      }
       const code = (err as { cause?: { code?: string } })?.cause?.code;
       throw new McpToolError(
         `Could not reach ${REMIND_ORIGIN}/graphql${code ? ` (${code})` : ''}.`,
