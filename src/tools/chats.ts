@@ -10,6 +10,7 @@ import {
 } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
 import { CHAT_MESSAGES, CHAT_STREAMS, PUT_MESSAGE } from '../queries.js';
+import { signedInAccount } from './account.js';
 
 interface PutMessageResult {
   putMessage: {
@@ -87,8 +88,7 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
         tool: 'remind_send_message',
         action: 'chat.send_message',
         message: 'Review and confirm this message. It delivers to real recipients and cannot be unsent:',
-        // One signed-in Remind session per server process.
-        account: undefined,
+        account: await signedInAccount(client),
         target: recipient_uuid,
         payload: { mutation: 'putMessage', input },
         preview: { warning: 'This delivers to real recipients and cannot be unsent.' },

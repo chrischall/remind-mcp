@@ -9,7 +9,24 @@ import {
   toolAnnotations,
 } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
-import { ME, NOTIFICATION_SETTINGS, UPDATE_NOTIFICATIONS } from '../queries.js';
+import { ME, ME_PROBE, NOTIFICATION_SETTINGS, UPDATE_NOTIFICATIONS } from '../queries.js';
+
+/**
+ * The uuid of the account the session is signed in as, read fresh for every
+ * gated write and bound into its confirmation. Under a shared
+ * MCP_CONFIRM_SECRET (mcp-host) an approval minted for one account must never
+ * act as another, so a write that cannot say whose it is goes no further.
+ */
+export async function signedInAccount(client: RemindClient): Promise<string> {
+  const data = await client.graphql<{ me?: { uuid?: string } | null }>(ME_PROBE);
+  const uuid = data.me?.uuid;
+  if (!uuid) {
+    throw new McpToolError('Could not identify the signed-in Remind account, so nothing was changed.', {
+      hint: 'Run remind_healthcheck to check the session, then retry.',
+    });
+  }
+  return uuid;
+}
 
 export function registerAccountTools(server: McpServer, client: RemindClient): void {
   server.registerTool(
@@ -61,8 +78,7 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
         tool: 'remind_set_notification_devices',
         action: 'notifications.set_devices',
         message: 'Review and confirm this notification device change:',
-        // One signed-in Remind session per server process.
-        account: undefined,
+        account: await signedInAccount(client),
         payload: { mutation: 'updateAccountNotificationsScreen', input },
         confirmToken,
       });
