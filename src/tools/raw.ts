@@ -50,7 +50,7 @@ export function registerRawTools(server: McpServer, client: RemindClient): void 
         'the change and ask you to confirm first. ' +
         'Note: Remind reports an unknown field as a 500-backed GRAPHQL_VALIDATION_FAILED, not a field error. ' +
         UNTRUSTED_DESCRIPTION_SUFFIX,
-      annotations: toolAnnotations({ title: 'Remind raw GraphQL', readOnly: true }),
+      annotations: toolAnnotations({ title: 'Remind raw GraphQL', readOnly: true, openWorld: true }),
       inputSchema: z.object({
         query: z.string().min(1).describe('A GraphQL query document.'),
         variables: z.record(z.string(), z.unknown()).optional().describe('Variables for the document.'),
@@ -78,7 +78,7 @@ export function registerRawTools(server: McpServer, client: RemindClient): void 
         '`error.kind`: no_credential (no session could be captured), credential_rejected (Remind refused ' +
         'the session), edge_blocked (a CDN/WAF refused the request before Remind saw it — re-signing in ' +
         'will not help), http, timeout or transport. Read-only; never returns the cookie or CSRF token.',
-      annotations: toolAnnotations({ title: 'Remind healthcheck', readOnly: true, idempotent: true }),
+      annotations: toolAnnotations({ title: 'Remind healthcheck', readOnly: true, idempotent: true, openWorld: true }),
       inputSchema: z.object({}),
     },
     async () => {

@@ -34,7 +34,7 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
     {
       description:
         'Get the signed-in Remind account: uuid, name, email, locale, admin/child flags and sign-in count.',
-      annotations: toolAnnotations({ title: 'Remind account', readOnly: true, idempotent: true }),
+      annotations: toolAnnotations({ title: 'Remind account', readOnly: true, idempotent: true, openWorld: true }),
       inputSchema: z.object({}),
     },
     async () => minifiedResult(await client.graphql(ME)),
@@ -47,7 +47,7 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
         'Get notification settings: reply/announcement-copy/incoming-call preferences plus every registered ' +
         'delivery device (email, sms, apns) with its enabled state. The `canManage*` flags say which ' +
         'preferences this account is actually allowed to change — a subscriber account cannot change most.',
-      annotations: toolAnnotations({ title: 'Remind notification settings', readOnly: true, idempotent: true }),
+      annotations: toolAnnotations({ title: 'Remind notification settings', readOnly: true, idempotent: true, openWorld: true }),
       inputSchema: z.object({}),
     },
     async () => minifiedResult(await client.graphql(NOTIFICATION_SETTINGS)),
@@ -60,7 +60,7 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
         'Enable or disable notification delivery devices by id (from remind_get_notification_settings). ' +
         'Nothing is sent until confirmed; the preview shows the exact mutation input. ' +
         CONFIRM_FLOW_SENTENCE,
-      annotations: toolAnnotations({ title: 'Remind set notification devices', readOnly: false, destructive: false }),
+      annotations: toolAnnotations({ title: 'Remind set notification devices', readOnly: false, destructive: false, openWorld: true }),
       inputSchema: z.object({
         enable: z.array(z.number().int()).optional().describe('Device ids to enable.'),
         disable: z.array(z.number().int()).optional().describe('Device ids to disable.'),

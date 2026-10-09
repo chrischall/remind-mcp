@@ -20,7 +20,43 @@
       "command": "node",
       "args": [
         "${__dirname}/dist/bundle.js"
-      ]
+      ],
+      "env": {
+        "REMIND_COOKIE": "${user_config.remind_cookie}",
+        "REMIND_CSRF_TOKEN": "${user_config.remind_csrf_token}",
+        "REMIND_WS_PORT": "${user_config.remind_ws_port}",
+        "REMIND_SESSION_FILE": "${user_config.remind_session_file}"
+      }
+    }
+  },
+  "user_config": {
+    "remind_cookie": {
+      "type": "string",
+      "title": "Remind Cookie",
+      "description": "Captured Cookie request header from a signed-in remind.com tab. Optional: the ContextMint Bridge extension captures it automatically.",
+      "required": false,
+      "sensitive": true
+    },
+    "remind_csrf_token": {
+      "type": "string",
+      "title": "Remind CSRF Token",
+      "description": "Captured x-csrf-token request header value. Optional; paired with REMIND_COOKIE.",
+      "required": false,
+      "sensitive": true
+    },
+    "remind_ws_port": {
+      "type": "string",
+      "title": "Bridge Port",
+      "description": "fetchproxy bridge concentrator port (default 37149).",
+      "required": false,
+      "sensitive": false
+    },
+    "remind_session_file": {
+      "type": "string",
+      "title": "Session File",
+      "description": "Path to the cached session file. Defaults to MCP_DATA_DIR/HOME under .remind-mcp.",
+      "required": false,
+      "sensitive": false
     }
   },
   "tools": [

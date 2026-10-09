@@ -13,7 +13,7 @@ export function registerClassTools(server: McpServer, client: RemindClient): voi
         'with unread counts. This is the entry point: it yields the uuids the other tools take. ' +
         'Optionally filter with a search query, and page with the returned cursor. ' +
         UNTRUSTED_DESCRIPTION_SUFFIX,
-      annotations: toolAnnotations({ title: 'Remind list classes & chats', readOnly: true, idempotent: true }),
+      annotations: toolAnnotations({ title: 'Remind list classes & chats', readOnly: true, idempotent: true, openWorld: true }),
       inputSchema: z.object({
         query: z.string().optional().describe('Filter by name.'),
         cursor: z.string().optional().describe('`cursor` from a previous call, to page.'),
@@ -30,7 +30,7 @@ export function registerClassTools(server: McpServer, client: RemindClient): voi
         'Get full detail for one or more classes by uuid: name, join code/url, member and message counts, ' +
         'owner count, history and messaging flags, and what this account may edit. ' +
         UNTRUSTED_DESCRIPTION_SUFFIX,
-      annotations: toolAnnotations({ title: 'Remind get classes', readOnly: true, idempotent: true }),
+      annotations: toolAnnotations({ title: 'Remind get classes', readOnly: true, idempotent: true, openWorld: true }),
       inputSchema: z.object({
         uuids: z.array(z.string()).min(1).describe('Class uuids, from remind_list_entities.'),
       }),

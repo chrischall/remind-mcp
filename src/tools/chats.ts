@@ -72,7 +72,7 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
         'List conversation streams with unread counts, member counts, last-updated time and the ' +
         'per-stream permissions (notably `canSend`). Filter to specific uuids, a class, or a search string. ' +
         UNTRUSTED_DESCRIPTION_SUFFIX,
-      annotations: toolAnnotations({ title: 'Remind list chats', readOnly: true, idempotent: true }),
+      annotations: toolAnnotations({ title: 'Remind list chats', readOnly: true, idempotent: true, openWorld: true }),
       inputSchema: z.object({
         uuids: z.array(z.string()).optional().describe('Restrict to these chat stream uuids.'),
         class_id: z.number().int().optional().describe('Numeric class id to scope chats to.'),
@@ -97,7 +97,7 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
         'message with sender, body and attachments), SystemMessageItem (joins, stream creation) or ' +
         'GapItem (a paging gap of `size` unloaded messages). ' +
         UNTRUSTED_DESCRIPTION_SUFFIX,
-      annotations: toolAnnotations({ title: 'Remind get messages', readOnly: true, idempotent: true }),
+      annotations: toolAnnotations({ title: 'Remind get messages', readOnly: true, idempotent: true, openWorld: true }),
       inputSchema: z.object({
         uuids: z.array(z.string()).min(1).describe('Chat stream uuids, from remind_list_chats.'),
         limit: z.number().int().min(1).max(200).default(25).describe('Max non-gap messages per stream.'),
@@ -114,7 +114,7 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
         'Nothing is sent until confirmed; the preview names the recipient and shows the exact payload. ' +
         CONFIRM_FLOW_SENTENCE + ' ' +
         'Check `permissions.canSend` on the target first (remind_list_chats).',
-      annotations: toolAnnotations({ title: 'Remind send message', readOnly: false, destructive: true }),
+      annotations: toolAnnotations({ title: 'Remind send message', readOnly: false, destructive: true, openWorld: true }),
       inputSchema: z.object({
         recipient_uuid: z.string().describe('Chat stream uuid, or class uuid.'),
         recipient_type: z
