@@ -1,4 +1,10 @@
-import { EdgeBlockedError, McpToolError, detectEdgeBlock, truncateErrorMessage } from '@chrischall/mcp-utils';
+import {
+  EdgeBlockedError,
+  McpToolError,
+  detectEdgeBlock,
+  truncateErrorMessage,
+  withAmbientCancellation,
+} from '@chrischall/mcp-utils';
 import {
   CookieSessionManager,
   createFileStatePersistence,
@@ -50,6 +56,29 @@ export class RemindUnauthorizedError extends McpToolError {
   }
 }
 
+/**
+ * Remind refused the REMIND_COOKIE/REMIND_CSRF_TOKEN pair and the browser
+ * capture could not stand in. Only the operator can fix it, by refreshing the
+ * env vars, so the hint says exactly that. Carries 401 like
+ * {@link RemindUnauthorizedError}.
+ */
+export class RemindEnvSessionRejectedError extends McpToolError {
+  readonly status = 401;
+  constructor(cause: unknown) {
+    super(
+      'Remind rejected the session in REMIND_COOKIE/REMIND_CSRF_TOKEN (it has expired), ' +
+        'and no fresh session could be captured from the browser.',
+      {
+        cause,
+        hint:
+          'Refresh REMIND_COOKIE and REMIND_CSRF_TOKEN from a signed-in remind.com tab and restart ' +
+          `the server — or unset them and open ${REMIND_ORIGIN} in Chrome while signed in.`,
+      },
+    );
+    this.name = 'RemindEnvSessionRejectedError';
+  }
+}
+
 /** A non-2xx from /graphql with no GraphQL error body; carries the status. */
 export class RemindHttpError extends McpToolError {
   constructor(readonly status: number) {
@@ -67,6 +96,13 @@ type Fetch = typeof globalThis.fetch;
  * session it was lifted from indefinitely.
  */
 export const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Upper bound on one GraphQL round-trip. Without it a stalled connection hangs
+ * the tool (and the `me` probe that decides expiry) until the MCP client gives
+ * up; the caller's own cancellation is honoured on top of it.
+ */
+export const GRAPHQL_TIMEOUT_MS = 30_000;
 
 /** One GraphQL round-trip plus the verdict on whether it proved the session dead. */
 interface Attempt {
@@ -110,6 +146,14 @@ export class RemindClient {
   private readonly transportFactory: NonNullable<RemindClientOpts['transportFactory']>;
   /** Sessions already shown (this process) to authenticate as their bound account. */
   private readonly verified = new WeakSet<RemindSession>();
+  /** Sessions that came from REMIND_COOKIE/REMIND_CSRF_TOKEN rather than a capture. */
+  private readonly envSessions = new WeakSet<RemindSession>();
+  /**
+   * Set once Remind has refused the env-supplied pair. The env cannot change
+   * within a process, so re-reading it would only replay the same dead pair;
+   * every later login goes to the browser capture instead.
+   */
+  private envRejected = false;
 
   constructor(opts: RemindClientOpts = {}) {
     this.transportFactory = opts.transportFactory ?? (() => createRemindTransport());
@@ -121,7 +165,24 @@ export class RemindClient {
       // A captured session is stamped with the account it authenticates as, so
       // a cached copy can later be checked against that account (attempt()).
       // An env session is the operator's explicit choice and is left unbound.
-      login: async () => sessionFromEnv() ?? (await this.bindAccount(await capture())),
+      login: async () => {
+        const env = this.envRejected ? undefined : sessionFromEnv();
+        if (env) {
+          this.envSessions.add(env);
+          return env;
+        }
+        try {
+          return await this.bindAccount(await capture());
+        } catch (err) {
+          throw this.envRejected ? new RemindEnvSessionRejectedError(err) : err;
+        }
+      },
+      // A failed re-login normally surfaces the original Unauthorized, whose
+      // hint points at the browser. When the dead session was the env pair,
+      // the actionable failure is the env one — surface that instead.
+      onReplayLoginError: (err) => {
+        if (err instanceof RemindEnvSessionRejectedError) throw err;
+      },
       maxAgeMs: SESSION_MAX_AGE_MS,
       // Expiry is decided inside the call (see attempt()), where the session is
       // in hand to probe with; invalidating on any Unauthorized would discard a
@@ -188,7 +249,11 @@ export class RemindClient {
     query: string,
     variables: Record<string, unknown> = {},
   ): Promise<T> {
-    const { res } = await this.sessions.withSession((session) => this.attempt(session, query, variables));
+    const { res } = await this.sessions.withSession(async (session) => {
+      const attempt = await this.attempt(session, query, variables);
+      if (attempt.expired && this.envSessions.has(session)) this.envRejected = true;
+      return attempt;
+    });
     if (res.errors?.length) {
       const first = res.errors[0];
       if (isUnauthorized(res)) {
@@ -275,8 +340,15 @@ export class RemindClient {
           'x-csrf-token': session.csrfToken,
         },
         body: JSON.stringify({ query, variables }),
+        signal: withAmbientCancellation(AbortSignal.timeout(GRAPHQL_TIMEOUT_MS)),
       });
     } catch (err) {
+      if ((err as { name?: string })?.name === 'TimeoutError') {
+        throw new McpToolError(
+          `${REMIND_ORIGIN}/graphql did not answer within ${GRAPHQL_TIMEOUT_MS / 1000}s.`,
+          { cause: err, hint: 'remind.com is slow or unreachable; retry shortly.' },
+        );
+      }
       const code = (err as { cause?: { code?: string } })?.cause?.code;
       throw new McpToolError(
         `Could not reach ${REMIND_ORIGIN}/graphql${code ? ` (${code})` : ''}.`,

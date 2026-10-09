@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { EdgeBlockedError } from '@chrischall/mcp-utils';
+import { EdgeBlockedError, withCallSignal } from '@chrischall/mcp-utils';
 import { RemindClient, SESSION_MAX_AGE_MS, isUnauthorized } from '../src/client.js';
 import type { RemindSession } from '../src/session.js';
 
@@ -174,6 +174,35 @@ describe('RemindClient.graphql', () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ data: null }));
     const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession: capture, sessionFile: null });
     await expect(client.graphql('{ me { uuid } }')).rejects.toThrow(/no data/);
+  });
+
+  it('bounds every GraphQL POST with a timeout signal', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ data: { me: { uuid: 'u1' } } }));
+    const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession: capture, sessionFile: null });
+    await client.graphql('{ me { uuid } }');
+    for (const call of fetchImpl.mock.calls as unknown as [string, RequestInit][]) {
+      expect(call[1].signal).toBeInstanceOf(AbortSignal);
+    }
+  });
+
+  it("aborts the GraphQL POST when the caller cancels the tool call", async () => {
+    const controller = new AbortController();
+    let seen: AbortSignal | undefined;
+    const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
+      seen = init.signal ?? undefined;
+      return jsonResponse({ data: { me: { uuid: 'u1' } } });
+    });
+    const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession: capture, sessionFile: null });
+    await withCallSignal(controller.signal, () => client.graphql('{ me { uuid } }'));
+    expect(seen?.aborted).toBe(false);
+    controller.abort();
+    expect(seen?.aborted).toBe(true);
+  });
+
+  it('reports a timed-out GraphQL POST as a timeout, not as unreachable', async () => {
+    const fetchImpl = vi.fn(async () => { throw new DOMException('timed out', 'TimeoutError'); });
+    const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession: capture, sessionFile: null });
+    await expect(client.graphql('{ me { uuid } }')).rejects.toThrow(/did not answer within 30s/);
   });
 
   it('reports a non-2xx with no GraphQL error body as an HTTP failure', async () => {
@@ -462,5 +491,46 @@ describe('account binding and expiry of the cached session', () => {
       delete process.env.REMIND_COOKIE;
       delete process.env.REMIND_CSRF_TOKEN;
     }
+  });
+});
+
+describe('an expired operator-supplied env session', () => {
+  const withEnv = async (fn: () => Promise<void>) => {
+    process.env.REMIND_COOKIE = 'env=1';
+    process.env.REMIND_CSRF_TOKEN = 'envtok';
+    try {
+      await fn();
+    } finally {
+      delete process.env.REMIND_COOKIE;
+      delete process.env.REMIND_CSRF_TOKEN;
+    }
+  };
+  // Remind refuses the env pair outright; the captured SESSION authenticates.
+  const fetchImpl = () =>
+    vi.fn(async (_url: string, init: RequestInit) => {
+      const cookie = (init.headers as Record<string, string>).cookie;
+      return cookie === 'env=1'
+        ? jsonResponse({ errors: [{ message: 'Unauthorized' }] })
+        : jsonResponse({ data: { me: { uuid: 'u1' } } });
+    });
+
+  it('falls back to the browser capture instead of replaying the same stale pair', async () => {
+    await withEnv(async () => {
+      const captureSession = vi.fn(capture);
+      const client = new RemindClient({ fetchImpl: fetchImpl() as never, captureSession, sessionFile: null });
+      await expect(client.graphql('{ me { uuid } }')).resolves.toEqual({ me: { uuid: 'u1' } });
+      expect(captureSession).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('tells the operator to refresh the env vars when the capture cannot stand in', async () => {
+    await withEnv(async () => {
+      const captureSession = vi.fn(async () => { throw new Error('bridge not available'); });
+      const client = new RemindClient({ fetchImpl: fetchImpl() as never, captureSession, sessionFile: null });
+      const err = await client.graphql('{ me { uuid } }').catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(Error);
+      expect((err as Error).message).toMatch(/REMIND_COOKIE/);
+      expect(JSON.stringify(err, Object.getOwnPropertyNames(err))).toMatch(/[Rr]efresh REMIND_COOKIE and REMIND_CSRF_TOKEN/);
+    });
   });
 });

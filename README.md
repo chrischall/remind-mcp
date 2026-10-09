@@ -31,7 +31,7 @@ extension and a signed-in tab), or supply them yourself:
 
 | Variable | Required | Description |
 |---|---|---|
-| `REMIND_COOKIE` | no | Captured `Cookie` request header. Skips the bridge when set with the next one. |
+| `REMIND_COOKIE` | no | Captured `Cookie` request header. Skips the bridge when set with the next one; once Remind rejects the pair as expired, the server falls back to the bridge (or, without one, tells you to refresh both). |
 | `REMIND_CSRF_TOKEN` | no | Captured `x-csrf-token` value. |
 | `REMIND_WS_PORT` | no | fetchproxy bridge concentrator port (default `37149`). |
 | `REMIND_SESSION_FILE` | no | Where the captured session is cached. Defaults to `$MCP_DATA_DIR`/`$HOME` under `.remind-mcp`. |
