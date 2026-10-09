@@ -493,3 +493,44 @@ describe('account binding and expiry of the cached session', () => {
     }
   });
 });
+
+describe('an expired operator-supplied env session', () => {
+  const withEnv = async (fn: () => Promise<void>) => {
+    process.env.REMIND_COOKIE = 'env=1';
+    process.env.REMIND_CSRF_TOKEN = 'envtok';
+    try {
+      await fn();
+    } finally {
+      delete process.env.REMIND_COOKIE;
+      delete process.env.REMIND_CSRF_TOKEN;
+    }
+  };
+  // Remind refuses the env pair outright; the captured SESSION authenticates.
+  const fetchImpl = () =>
+    vi.fn(async (_url: string, init: RequestInit) => {
+      const cookie = (init.headers as Record<string, string>).cookie;
+      return cookie === 'env=1'
+        ? jsonResponse({ errors: [{ message: 'Unauthorized' }] })
+        : jsonResponse({ data: { me: { uuid: 'u1' } } });
+    });
+
+  it('falls back to the browser capture instead of replaying the same stale pair', async () => {
+    await withEnv(async () => {
+      const captureSession = vi.fn(capture);
+      const client = new RemindClient({ fetchImpl: fetchImpl() as never, captureSession, sessionFile: null });
+      await expect(client.graphql('{ me { uuid } }')).resolves.toEqual({ me: { uuid: 'u1' } });
+      expect(captureSession).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('tells the operator to refresh the env vars when the capture cannot stand in', async () => {
+    await withEnv(async () => {
+      const captureSession = vi.fn(async () => { throw new Error('bridge not available'); });
+      const client = new RemindClient({ fetchImpl: fetchImpl() as never, captureSession, sessionFile: null });
+      const err = await client.graphql('{ me { uuid } }').catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(Error);
+      expect((err as Error).message).toMatch(/REMIND_COOKIE/);
+      expect(JSON.stringify(err, Object.getOwnPropertyNames(err))).toMatch(/[Rr]efresh REMIND_COOKIE and REMIND_CSRF_TOKEN/);
+    });
+  });
+});
