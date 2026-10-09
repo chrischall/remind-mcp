@@ -6,12 +6,23 @@ import { registerClassTools } from '../src/tools/classes.js';
 import { registerRawTools } from '../src/tools/raw.js';
 import { McpToolError } from '@chrischall/mcp-utils';
 import { RemindClient } from '../src/client.js';
-import { ME_PROBE } from '../src/queries.js';
+import { CHAT_STREAMS, CLASSES, ME_PROBE } from '../src/queries.js';
 
 const stubClient = (graphql: ReturnType<typeof vi.fn>) => ({ graphql }) as unknown as RemindClient;
 
-/** The signed-in account the write tools read before their gate; mutable per test. */
-const reads = { account: 'acct-1' as string | null };
+/** What the write tools read before their gate (account, recipient); mutable per test. */
+const DEFAULT_CHAT = { uuid: 'c1', title: 'Coach', properTitle: 'Coach Smith', membershipsCount: 2 };
+const DEFAULT_CLASS = { uuid: 'g1', name: 'math101', displayName: 'Math 101', membershipsCount: 31 };
+const reads = {
+  account: 'acct-1' as string | null,
+  chats: [DEFAULT_CHAT] as Record<string, unknown>[],
+  classes: [DEFAULT_CLASS] as Record<string, unknown>[],
+};
+const resetReads = () => {
+  reads.account = 'acct-1';
+  reads.chats = [DEFAULT_CHAT];
+  reads.classes = [DEFAULT_CLASS];
+};
 
 /**
  * A client for the write tools: answers the account read itself and hands every
@@ -21,7 +32,13 @@ const reads = { account: 'acct-1' as string | null };
 const writeClient = (graphql: ReturnType<typeof vi.fn>) =>
   stubClient(
     vi.fn(async (query: string, variables?: Record<string, unknown>) =>
-      query === ME_PROBE ? { me: reads.account ? { uuid: reads.account } : null } : graphql(query, variables),
+      query === ME_PROBE
+        ? { me: reads.account ? { uuid: reads.account } : null }
+        : query === CHAT_STREAMS
+          ? { chatStreams: reads.chats.filter((c) => (variables?.chatUuids as string[]).includes(c.uuid as string)) }
+          : query === CLASSES
+            ? { classes: reads.classes.filter((c) => (variables?.uuids as string[]).includes(c.uuid as string)) }
+            : graphql(query, variables),
     ),
   );
 
@@ -110,7 +127,50 @@ describe('confirmed writes', () => {
   const savedEnv = { ...process.env };
   afterEach(() => {
     process.env = { ...savedEnv };
-    reads.account = 'acct-1';
+    resetReads();
+  });
+
+  it('remind_send_message names the chat recipient, not just its uuid, in the preview', async () => {
+    const h = await createTestHarness((s) => registerChatTools(s, writeClient(vi.fn())));
+    const out = parseToolResult<Phase1>(await h.callTool('remind_send_message', SEND_ARGS));
+    expect(out.preview.recipient).toBe('Coach Smith (chat, 2 members)');
+  });
+
+  it('remind_send_message names a whole-class recipient in the preview', async () => {
+    const h = await createTestHarness((s) => registerChatTools(s, writeClient(vi.fn())));
+    const out = parseToolResult<Phase1>(
+      await h.callTool('remind_send_message', { recipient_uuid: 'g1', recipient_type: 'group', body: 'hi' }),
+    );
+    expect(out.preview.recipient).toBe('Math 101 (whole class, 31 members)');
+  });
+
+  it.each([
+    [{ uuid: 'c1', title: 'Coach', properTitle: null, membershipsCount: null }, 'Coach (chat)'],
+    [{ uuid: 'c1' }, '(untitled) (chat)'],
+  ])('remind_send_message falls back gracefully when the chat lacks a proper title or count', async (chat, label) => {
+    reads.chats = [chat];
+    const h = await createTestHarness((s) => registerChatTools(s, writeClient(vi.fn())));
+    const out = parseToolResult<Phase1>(await h.callTool('remind_send_message', SEND_ARGS));
+    expect(out.preview.recipient).toBe(label);
+  });
+
+  it('remind_send_message refuses a token when the recipient changed since the preview', async () => {
+    const graphql = vi.fn(async () => SENT);
+    const h = await createTestHarness((s) => registerChatTools(s, writeClient(graphql)));
+    const { confirmToken } = parseToolResult<Phase1>(await h.callTool('remind_send_message', SEND_ARGS));
+    reads.chats = [{ ...DEFAULT_CHAT, membershipsCount: 30 }];
+    const res = await h.callTool('remind_send_message', { ...SEND_ARGS, confirmToken });
+    expect(JSON.stringify(res.content)).toMatch(/DRAFT_CHANGED/);
+    expect(graphql).not.toHaveBeenCalled();
+  });
+
+  it.each([['chat'], ['group']])('remind_send_message refuses an unknown %s recipient without sending', async (type) => {
+    const graphql = vi.fn(async () => SENT);
+    const h = await createTestHarness((s) => registerChatTools(s, writeClient(graphql)), accept);
+    const res = await h.callTool('remind_send_message', { recipient_uuid: 'nope', recipient_type: type, body: 'hi' });
+    expect(res.isError).toBe(true);
+    expect(JSON.stringify(res.content)).toMatch(/remind_list_chats|remind_get_classes/);
+    expect(graphql).not.toHaveBeenCalled();
   });
 
   it('remind_send_message refuses a token minted for a different signed-in account', async () => {

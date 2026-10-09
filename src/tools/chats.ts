@@ -9,7 +9,7 @@ import {
   toolAnnotations,
 } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
-import { CHAT_MESSAGES, CHAT_STREAMS, PUT_MESSAGE } from '../queries.js';
+import { CHAT_MESSAGES, CHAT_STREAMS, CLASSES, PUT_MESSAGE } from '../queries.js';
 import { signedInAccount } from './account.js';
 
 interface PutMessageResult {
@@ -17,6 +17,49 @@ interface PutMessageResult {
     error: { __typename?: string } | null;
     messages: unknown[] | null;
   } | null;
+}
+
+interface Recipient {
+  title?: string | null;
+  properTitle?: string | null;
+  displayName?: string | null;
+  name?: string | null;
+  membershipsCount?: number | null;
+}
+
+/**
+ * Who a send reaches, in words: `Coach Smith (chat, 2 members)` or
+ * `Math 101 (whole class, 31 members)`. A bare uuid cannot tell a parent
+ * approving the send whether it goes to one teacher or to thirty families,
+ * which is the one fact the confirmation exists to put in front of them.
+ * Bound as the token's revision, so a target renamed or regrown between the
+ * preview and the confirmed call is refused as DRAFT_CHANGED.
+ */
+async function describeRecipient(client: RemindClient, uuid: string, type: 'chat' | 'group'): Promise<string> {
+  let found: Recipient | undefined;
+  if (type === 'group') {
+    const data = await client.graphql<{ classes?: Recipient[] | null }>(CLASSES, { uuids: [uuid] });
+    found = data.classes?.[0];
+  } else {
+    const data = await client.graphql<{ chatStreams?: Recipient[] | null }>(CHAT_STREAMS, {
+      chatUuids: [uuid],
+      groupId: null,
+      chatQuery: null,
+    });
+    found = data.chatStreams?.[0];
+  }
+  if (!found) {
+    throw new McpToolError(`No ${type === 'group' ? 'class' : 'chat'} ${uuid} is visible to this account; nothing was sent.`, {
+      hint:
+        type === 'group'
+          ? 'Find the class uuid with remind_get_classes or remind_list_entities.'
+          : 'Find the chat uuid with remind_list_chats.',
+    });
+  }
+  const label =
+    (type === 'group' ? found.displayName || found.name : found.properTitle || found.title) || '(untitled)';
+  const members = found.membershipsCount == null ? '' : `, ${found.membershipsCount} members`;
+  return `${label} (${type === 'group' ? 'whole class' : 'chat'}${members})`;
 }
 
 export function registerChatTools(server: McpServer, client: RemindClient): void {
@@ -64,7 +107,7 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
     {
       description:
         'Send a message to a chat stream or class. Delivers to real people and CANNOT be unsent. ' +
-        'Nothing is sent until confirmed; the preview shows the exact payload. ' +
+        'Nothing is sent until confirmed; the preview names the recipient and shows the exact payload. ' +
         CONFIRM_FLOW_SENTENCE + ' ' +
         'Check `permissions.canSend` on the target first (remind_list_chats).',
       annotations: toolAnnotations({ title: 'Remind send message', readOnly: false, destructive: true }),
@@ -84,14 +127,16 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
         recipients: [{ type: recipient_type, uuid: recipient_uuid }],
         message: { body, urgent },
       };
+      const recipient = await describeRecipient(client, recipient_uuid, recipient_type);
       const gate = await confirmWrite(ctx, {
         tool: 'remind_send_message',
         action: 'chat.send_message',
         message: 'Review and confirm this message. It delivers to real recipients and cannot be unsent:',
         account: await signedInAccount(client),
         target: recipient_uuid,
+        revision: recipient,
         payload: { mutation: 'putMessage', input },
-        preview: { warning: 'This delivers to real recipients and cannot be unsent.' },
+        preview: { recipient, warning: 'This delivers to real recipients and cannot be unsent.' },
         confirmToken,
       });
       if (gate) return gate;
