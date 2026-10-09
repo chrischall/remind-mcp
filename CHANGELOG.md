@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.2.6](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.5...remind-mcp-v1.2.6) (2026-10-09)
+
+
+### Bug Fixes
+
+* annotate tools truthfully and sync manifests with the served tools ([#105](https://github.com/chrischall/remind-mcp/issues/105)) ([1fc7738](https://github.com/chrischall/remind-mcp/commit/1fc77387c716294f0dede6f5a80f98a268c110f6))
+* **deps:** Bump the production-dependencies group with 2 updates ([#103](https://github.com/chrischall/remind-mcp/issues/103)) ([94c0a4b](https://github.com/chrischall/remind-mcp/commit/94c0a4bd6f0ffec025b0f292f8bf08ad9818696c))
+* **deps:** update @chrischall/mcp-utils to 3.0.0 ([#104](https://github.com/chrischall/remind-mcp/issues/104)) ([cdde663](https://github.com/chrischall/remind-mcp/commit/cdde663f42b62048f8ccbf123d2fb99d1fed4d7a))
+* resolve low-severity audit findings ([#99](https://github.com/chrischall/remind-mcp/issues/99)) ([5423c73](https://github.com/chrischall/remind-mcp/commit/5423c73d36442d07186a1a4a505687d1a73c2c64))
+
 ## [1.2.5](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.4...remind-mcp-v1.2.5) (2026-10-07)
 
 
