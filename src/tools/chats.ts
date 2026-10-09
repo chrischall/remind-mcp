@@ -5,8 +5,10 @@ import {
   confirmTokenParam,
   confirmWrite,
   CONFIRM_FLOW_SENTENCE,
+  UNTRUSTED_DESCRIPTION_SUFFIX,
   minifiedResult,
   toolAnnotations,
+  untrustedResult,
 } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
 import { CHAT_MESSAGES, CHAT_STREAMS, CLASSES, PUT_MESSAGE } from '../queries.js';
@@ -68,7 +70,8 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
     {
       description:
         'List conversation streams with unread counts, member counts, last-updated time and the ' +
-        'per-stream permissions (notably `canSend`). Filter to specific uuids, a class, or a search string.',
+        'per-stream permissions (notably `canSend`). Filter to specific uuids, a class, or a search string. ' +
+        UNTRUSTED_DESCRIPTION_SUFFIX,
       annotations: toolAnnotations({ title: 'Remind list chats', readOnly: true, idempotent: true }),
       inputSchema: z.object({
         uuids: z.array(z.string()).optional().describe('Restrict to these chat stream uuids.'),
@@ -77,7 +80,7 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
       }),
     },
     async ({ uuids, class_id, query }) =>
-      minifiedResult(
+      untrustedResult(
         await client.graphql(CHAT_STREAMS, {
           chatUuids: uuids ?? null,
           groupId: class_id ?? null,
@@ -92,14 +95,15 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
       description:
         'Read messages in one or more chat streams, newest-last. Items are typed: MessageItem (a real ' +
         'message with sender, body and attachments), SystemMessageItem (joins, stream creation) or ' +
-        'GapItem (a paging gap of `size` unloaded messages).',
+        'GapItem (a paging gap of `size` unloaded messages). ' +
+        UNTRUSTED_DESCRIPTION_SUFFIX,
       annotations: toolAnnotations({ title: 'Remind get messages', readOnly: true, idempotent: true }),
       inputSchema: z.object({
         uuids: z.array(z.string()).min(1).describe('Chat stream uuids, from remind_list_chats.'),
         limit: z.number().int().min(1).max(200).default(25).describe('Max non-gap messages per stream.'),
       }),
     },
-    async ({ uuids, limit }) => minifiedResult(await client.graphql(CHAT_MESSAGES, { chatUuids: uuids, limit })),
+    async ({ uuids, limit }) => untrustedResult(await client.graphql(CHAT_MESSAGES, { chatUuids: uuids, limit })),
   );
 
   server.registerTool(

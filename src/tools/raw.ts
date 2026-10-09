@@ -1,7 +1,13 @@
 import { z } from 'zod';
 import { Kind, parse } from 'graphql';
 import type { McpServer } from '@modelcontextprotocol/server';
-import { McpToolError, minifiedResult, toolAnnotations } from '@chrischall/mcp-utils';
+import {
+  McpToolError,
+  UNTRUSTED_DESCRIPTION_SUFFIX,
+  minifiedResult,
+  toolAnnotations,
+  untrustedResult,
+} from '@chrischall/mcp-utils';
 import { runCredentialHealthcheck } from '@chrischall/mcp-utils/healthcheck';
 import { RemindUnauthorizedError, type RemindClient } from '../client.js';
 import { REMIND_HOST, sessionFromEnv } from '../session.js';
@@ -42,7 +48,8 @@ export function registerRawTools(server: McpServer, client: RemindClient): void 
         '`{ __schema { ... } }` and `{ __type(name:"Class") { fields { name } } }` work for discovering ' +
         'fields the typed tools do not expose. Mutations are rejected — use the write tools, which preview ' +
         'the change and ask you to confirm first. ' +
-        'Note: Remind reports an unknown field as a 500-backed GRAPHQL_VALIDATION_FAILED, not a field error.',
+        'Note: Remind reports an unknown field as a 500-backed GRAPHQL_VALIDATION_FAILED, not a field error. ' +
+        UNTRUSTED_DESCRIPTION_SUFFIX,
       annotations: toolAnnotations({ title: 'Remind raw GraphQL', readOnly: true }),
       inputSchema: z.object({
         query: z.string().min(1).describe('A GraphQL query document.'),
@@ -58,7 +65,7 @@ export function registerRawTools(server: McpServer, client: RemindClient): void 
             'ask for confirmation before sending.',
         });
       }
-      return minifiedResult(await client.graphql(query, variables ?? {}));
+      return untrustedResult(await client.graphql(query, variables ?? {}));
     },
   );
 
