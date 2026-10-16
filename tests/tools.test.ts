@@ -387,6 +387,12 @@ describe('remind_graphql escape hatch', () => {
     ['\uFEFFmutation{x}'],
     ['subscription S { x }'],
     ['not a graphql document {'],
+    // Fleet guard (mcp-utils isReadOnlyGraphqlDocument): a document must carry a
+    // query; fragments alone, or nothing at all, are refused.
+    ['fragment F on Class { uuid }'],
+    ['# just a comment'],
+    ['extend type Query { x: Int }'],
+    ['{ me { uuid }'],
   ])('refuses a mutation document: %s', async (doc) => {
     const graphql = vi.fn();
     const h = await createTestHarness((s) => registerRawTools(s, stubClient(graphql)));
@@ -403,6 +409,12 @@ describe('remind_graphql escape hatch', () => {
     expect(text).toContain('remind_set_notification_devices');
     expect(text).toMatch(/preview/i);
     expect(text).not.toMatch(/confirm-gated/i);
+  });
+
+  it('names a subscription in the refusal', async () => {
+    const h = await createTestHarness((s) => registerRawTools(s, stubClient(vi.fn())));
+    const res = await h.callTool('remind_graphql', { query: 'query Q { a } subscription S { x }' });
+    expect(JSON.stringify(res.content)).toContain('subscription operation');
   });
 
   it('does not mistake a field named mutationCount for a mutation', async () => {

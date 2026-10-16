@@ -68,3 +68,15 @@ describe('version consistency across manifests', () => {
     expect(read('server.json').description.length).toBeLessThanOrEqual(100);
   });
 });
+
+describe('runtime dependencies', () => {
+  // Every runtime dependency ships to each npx user. dotenv was never imported
+  // and graphql-js was only a parser for a guard mcp-utils already provides
+  // (isReadOnlyGraphqlDocument), so neither belongs here.
+  it('carries no dependency the server does not use', () => {
+    const deps = Object.keys(pkg.dependencies ?? {});
+    expect(deps).not.toContain('dotenv');
+    expect(deps).not.toContain('graphql');
+    expect(pkg.scripts.bundle).not.toContain('--external:dotenv');
+  });
+});

@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { Kind, parse } from 'graphql';
 import type { McpServer } from '@modelcontextprotocol/server';
 import {
   McpToolError,
@@ -9,6 +8,7 @@ import {
   untrustedResult,
 } from '@chrischall/mcp-utils';
 import { runCredentialHealthcheck } from '@chrischall/mcp-utils/healthcheck';
+import { graphqlOperationKinds, isReadOnlyGraphqlDocument } from '@chrischall/mcp-utils/graphql';
 import { RemindUnauthorizedError, type RemindClient } from '../client.js';
 import { REMIND_HOST, sessionFromEnv } from '../session.js';
 import { ME } from '../queries.js';
@@ -16,27 +16,24 @@ import { ME } from '../queries.js';
 /**
  * Mutations must go through the typed write tools, which preview the change and
  * ask for confirmation first, never the escape hatch.
- * The document is parsed rather than pattern-matched: GraphQL treats commas,
+ * The gate is the fleet's shared guard, mcp-utils `isReadOnlyGraphqlDocument`:
+ * a real tokenizer, not a regex over the raw text (GraphQL treats commas,
  * comments and a BOM as ignored tokens and lets an operation follow `}`
- * directly, so a regex over the raw text is trivially sidestepped
- * (`,mutation M { ... }`). Anything that is not solely query operations (plus
- * fragments) is refused, including a document that does not parse at all.
+ * directly, so `,mutation M { ... }` must still be caught). It fails closed:
+ * anything that is not one or more query operations (plus fragments) is
+ * refused, including a document that does not parse. Only the refusal's
+ * wording is local.
  */
 export function readOnlyViolation(query: string): string | null {
-  let doc;
-  try {
-    doc = parse(query, { noLocation: true });
-  } catch (err) {
-    return `the document does not parse (${(err as Error).message})`;
-  }
-  for (const def of doc.definitions) {
-    if (def.kind === Kind.OPERATION_DEFINITION) {
-      if (def.operation !== 'query') return `it contains a ${def.operation} operation`;
-    } else if (def.kind !== Kind.FRAGMENT_DEFINITION) {
-      return `it contains a ${def.kind} definition`;
-    }
-  }
-  return null;
+  if (isReadOnlyGraphqlDocument(query)) return null;
+  const kinds = graphqlOperationKinds(query);
+  const write = kinds.find((k) => k === 'mutation' || k === 'subscription');
+  if (write) return `it contains a ${write} operation`;
+  const other = kinds.find((k) => k !== 'query' && k !== 'fragment');
+  if (other) return `it contains a top-level "${other}" definition`;
+  return kinds.includes('query')
+    ? 'the document does not parse'
+    : 'it contains no query operation';
 }
 
 export function registerRawTools(server: McpServer, client: RemindClient): void {
