@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.7](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.6...remind-mcp-v1.2.7) (2026-10-16)
+
+
+### Bug Fixes
+
+* **graphql:** use the fleet read-only guard and drop unused runtime dependencies ([#106](https://github.com/chrischall/remind-mcp/issues/106)) ([fca1dbf](https://github.com/chrischall/remind-mcp/commit/fca1dbf578588888bef7a2d9b5b11f099af2cd27))
+
 ## [1.2.6](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.5...remind-mcp-v1.2.6) (2026-10-09)
 
 
