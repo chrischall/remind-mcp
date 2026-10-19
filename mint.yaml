@@ -58,3 +58,11 @@ egress:
   # declaration, not server egress, so it is deliberately not listed.
   allow:
     - www.remind.com
+
+examples:
+  - prompt: Which of my Remind classes and chats have unread messages?
+    note: Read-only; lists the sidebar with unread counts.
+  - prompt: Show me the latest messages from my kid's teacher in Remind.
+    note: Finds the chat, then reads its recent messages.
+  - prompt: What's the join code and member count for my Remind class?
+    note: Read-only class detail.
