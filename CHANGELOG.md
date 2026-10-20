@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.8](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.7...remind-mcp-v1.2.8) (2026-10-20)
+
+
+### Bug Fixes
+
+* **http:** name the cause when Remind cannot be reached, with a hint keyed to it ([#115](https://github.com/chrischall/remind-mcp/issues/115)) ([74a6f31](https://github.com/chrischall/remind-mcp/commit/74a6f31b71eb926e90bc17350b448d808a424780))
+
+
+### Documentation
+
+* **mint:** add a summary for the public catalog ([#114](https://github.com/chrischall/remind-mcp/issues/114)) ([ed82477](https://github.com/chrischall/remind-mcp/commit/ed824773c6cc57efdc8aac8acf1919221c5c7710))
+* **mint:** add sample prompts for the public catalog ([#112](https://github.com/chrischall/remind-mcp/issues/112)) ([41f8ae6](https://github.com/chrischall/remind-mcp/commit/41f8ae61e0a3af55e05545b69c5953566f634e95))
+
 ## [1.2.7](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.6...remind-mcp-v1.2.7) (2026-10-16)
 
 
