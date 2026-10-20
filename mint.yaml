@@ -1,6 +1,7 @@
 version: 1
 name: Remind
 slug: remind
+summary: Read your Remind classes, chats and messages with unread counts, send confirmed messages to a chat or whole class, and manage notification devices.
 
 # Browser-bridge MCP: the one-time credential lift runs over the fetchproxy
 # bridge, so a hosted registration also needs `runtime: fly-shared`,
