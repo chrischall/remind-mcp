@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { EdgeBlockedError, withCallSignal } from '@chrischall/mcp-utils';
+import { EdgeBlockedError, McpToolError, withCallSignal } from '@chrischall/mcp-utils';
 import { RemindClient, SESSION_MAX_AGE_MS, isUnauthorized } from '../src/client.js';
 import type { RemindSession } from '../src/session.js';
 
@@ -163,11 +163,38 @@ describe('RemindClient.graphql', () => {
     await expect(client.graphql('{ me { uuid } }')).rejects.toMatchObject({ status: 503 });
   });
 
-  it('reports a network failure with its cause code', async () => {
-    const err = Object.assign(new Error('fail'), { cause: { code: 'ENOTFOUND' } });
+  it('reports a network failure with the host, its cause code and a hint keyed to it', async () => {
+    const err = new TypeError('fetch failed', {
+      cause: Object.assign(new Error('getaddrinfo ENOTFOUND www.remind.com'), { code: 'ENOTFOUND' }),
+    });
     const fetchImpl = vi.fn(async () => { throw err; });
     const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession: capture, sessionFile: null });
-    await expect(client.graphql('{ me { uuid } }')).rejects.toThrow(/ENOTFOUND/);
+    const thrown = await client.graphql('{ me { uuid } }').catch((e: unknown) => e);
+    expect(thrown).toBeInstanceOf(McpToolError);
+    expect((thrown as McpToolError).kind).toBe('transport');
+    expect((thrown as Error).message).toBe(
+      'Could not reach Remind at www.remind.com (ENOTFOUND: getaddrinfo ENOTFOUND www.remind.com).',
+    );
+    expect((thrown as McpToolError).hint).toContain('nslookup www.remind.com');
+    expect((thrown as Error).cause).toBe(err);
+  });
+
+  it("points a hosted connector's egress-proxy refusal at the registration's allow-list", async () => {
+    const aborted = Object.assign(new Error('Proxy response (403) !== 200 when HTTP Tunneling'), { code: 'UND_ERR_ABORTED' });
+    const fetchImpl = vi.fn(async () => {
+      throw new TypeError('fetch failed', { cause: new Error('Request was cancelled.', { cause: aborted }) });
+    });
+    const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession: capture, sessionFile: null });
+    const thrown = await client.graphql('{ me { uuid } }').catch((e: unknown) => e);
+    expect((thrown as McpToolError).hint).toMatch(/egress allow-list/);
+    expect((thrown as McpToolError).hint).not.toMatch(/VPN|DNS/);
+  });
+
+  it('still names the endpoint and the code for a failure that is not fetch\'s transport TypeError', async () => {
+    const err = Object.assign(new Error('fail'), { cause: { code: 'ECONNRESET' } });
+    const fetchImpl = vi.fn(async () => { throw err; });
+    const client = new RemindClient({ fetchImpl: fetchImpl as never, captureSession: capture, sessionFile: null });
+    await expect(client.graphql('{ me { uuid } }')).rejects.toThrow(/Could not reach https:\/\/www\.remind\.com\/graphql \(ECONNRESET\)/);
   });
 
   it('throws when the response carries neither data nor errors', async () => {
