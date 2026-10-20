@@ -1,7 +1,9 @@
 import {
   EdgeBlockedError,
   McpToolError,
+  describeTransportFailure,
   detectEdgeBlock,
+  transportCauseCode,
   truncateErrorMessage,
   withAmbientCancellation,
 } from '@chrischall/mcp-utils';
@@ -349,7 +351,13 @@ export class RemindClient {
           { cause: err, hint: 'remind.com is slow or unreachable; retry shortly.' },
         );
       }
-      const code = (err as { cause?: { code?: string } })?.cause?.code;
+      // undici's bare `TypeError('fetch failed')`: name the host, the cause
+      // code and a hint keyed to it (DNS, TLS, refused, an egress proxy's
+      // refusal). Anything else that never got a response keeps the generic
+      // wrap, with the first code on its cause chain.
+      const described = describeTransportFailure(err, `${REMIND_ORIGIN}/graphql`, 'Remind');
+      if (described) throw described;
+      const code = transportCauseCode(err);
       throw new McpToolError(
         `Could not reach ${REMIND_ORIGIN}/graphql${code ? ` (${code})` : ''}.`,
         { cause: err, hint: 'Check network access and that remind.com egress is allowed.' },
