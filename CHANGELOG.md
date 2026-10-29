@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.9](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.8...remind-mcp-v1.2.9) (2026-10-29)
+
+
+### Bug Fixes
+
+* **deps:** require @chrischall/mcp-utils 3.4.0 ([#117](https://github.com/chrischall/remind-mcp/issues/117)) ([5557c35](https://github.com/chrischall/remind-mcp/commit/5557c35df4b5d072364b696cfabbea23f05e5a65))
+* **deps:** require the MCP SDK ^2.4.0 that mcp-utils 3.4.0 peer-requires ([#119](https://github.com/chrischall/remind-mcp/issues/119)) ([64e2798](https://github.com/chrischall/remind-mcp/commit/64e279870977e200309ceeb4a6351b7df418a78e))
+
 ## [1.2.8](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.7...remind-mcp-v1.2.8) (2026-10-20)
 
 
