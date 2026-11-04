@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.3.0...remind-mcp-v1.3.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* **brief:** align the brief view with the fleet contract ([#123](https://github.com/chrischall/remind-mcp/issues/123)) ([ccfa147](https://github.com/chrischall/remind-mcp/commit/ccfa14703846cd6004e44addc648fc49fc5f77cb))
+
 ## [1.3.0](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.9...remind-mcp-v1.3.0) (2026-11-04)
 
 
