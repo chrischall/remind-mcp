@@ -96,8 +96,9 @@ When remind-mcp is hosted on mcp-host, its tools join the **school** context gro
 (`_meta.mint` hints on each tool; the healthcheck joins none).
 
 - **Canonical read:** `remind_list_chats` answers *what's new* — `view: "brief"` gives one
-  line per chat with unread messages, `title — <last updated> — N unread`, and nothing when
-  everything is read. It takes no subject (one signed-in account, no children to choose
+  line per chat with unread messages, `title — <last updated> — N unread`, and the single note
+  line `-- none` when everything is read. Chat titles are other people's text, so the lines
+  arrive inside the untrusted-data envelope as `data: string[]`. It takes no subject (one signed-in account, no children to choose
   between) and no date range.
 - Everything else is a `lookup` (account, classes, messages, notification settings), a
   `send` (`remind_send_message`, still confirm-gated), a `turn-on-off`

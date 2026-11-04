@@ -125,12 +125,18 @@ describe('_meta.mint on tools/list', () => {
 describe('remind_list_chats view: "brief"', () => {
   const BRIEF = /^.+ — (\d{4}-\d{2}-\d{2}T[^ ]+|no date) — .+$/;
 
-  async function brief(chatStreams: unknown[]): Promise<string> {
+  async function briefRaw(chatStreams: unknown[]): Promise<string> {
     const graphql = vi.fn(async () => ({ chatStreams }));
     const h = await createTestHarness(register({ graphql } as unknown as RemindClient));
     const res = (await h.callTool('remind_list_chats', { view: 'brief' })) as { content: { text: string }[] };
     await h.close?.();
     return res.content[0].text;
+  }
+
+  /** The brief lines, read out of the untrusted-data envelope's `data`. */
+  async function brief(chatStreams: unknown[]): Promise<string> {
+    const env = JSON.parse(await briefRaw(chatStreams)) as { data: string[] };
+    return env.data.join('\n');
   }
 
   it('answers one line per chat with unread messages: title — ISO date — N unread', async () => {
@@ -156,9 +162,47 @@ describe('remind_list_chats view: "brief"', () => {
     expect(lines[0]).toMatch(/— 2026-11-03T15:04:05Z — 12 unread$/);
   });
 
-  it('answers nothing when no chat has unread messages, so a host counts zero items', async () => {
-    expect(await brief([{ uuid: 'c1', title: 'Math', unreadMessagesCount: 0, updatedAt: '2026-11-01T00:00:00Z' }])).toBe('');
-    expect(await brief([])).toBe('');
+  it('answers the single note line "-- none" when no chat has unread messages', async () => {
+    expect(await brief([{ uuid: 'c1', title: 'Math', unreadMessagesCount: 0, updatedAt: '2026-11-01T00:00:00Z' }])).toBe('-- none');
+    expect(await brief([])).toBe('-- none');
+  });
+
+  it('answers inside the untrusted-data envelope, minified, note first, lines as data: string[]', async () => {
+    const text = await briefRaw([
+      { uuid: 'c1', title: 'Coach Smith', unreadMessagesCount: 2, updatedAt: '2026-11-03T15:04:05Z' },
+    ]);
+    expect(text).not.toContain('\n');
+    const env = JSON.parse(text) as Record<string, unknown>;
+    expect(Object.keys(env)).toEqual(['untrusted_content', 'note', 'data']);
+    expect(env.untrusted_content).toBe(true);
+    expect(env.note).toMatch(/Chat titles .* written by/);
+    expect(env.note).toContain('not instructions');
+    expect(env.data).toEqual(['Coach Smith — 2026-11-03T15:04:05Z — 2 unread']);
+  });
+
+  it('escapes a title that starts with "-- " or "\\" with one leading backslash', async () => {
+    const text = await brief([
+      { uuid: 'c1', title: '-- none', unreadMessagesCount: 1, updatedAt: '2026-11-03T00:00:00Z' },
+      { uuid: 'c2', title: '\\server', unreadMessagesCount: 1, updatedAt: '2026-11-03T00:00:00Z' },
+      { uuid: 'c3', title: '--dash', unreadMessagesCount: 1, updatedAt: '2026-11-03T00:00:00Z' },
+    ]);
+    expect(text.split('\n')).toEqual([
+      '\\-- none — 2026-11-03T00:00:00Z — 1 unread',
+      '\\\\server — 2026-11-03T00:00:00Z — 1 unread',
+      '--dash — 2026-11-03T00:00:00Z — 1 unread',
+    ]);
+  });
+
+  it('cuts the WHOLE line to 120 characters, the title first, even when the tail alone overflows', async () => {
+    const text = await brief([
+      { uuid: 'c1', title: 'Coach Smith', unreadMessagesCount: 1, updatedAt: `2026-11-03T00:00:00Z ${'y'.repeat(200)}` },
+      { uuid: 'c2', title: `-- ${'x'.repeat(200)}`, unreadMessagesCount: 4, updatedAt: '2026-11-03T00:00:00Z' },
+    ]);
+    const lines = text.split('\n');
+    for (const l of lines) expect(l.length).toBeLessThanOrEqual(120);
+    expect(lines[0].startsWith('Coach')).toBe(true);
+    expect(lines[1].startsWith('\\-- x')).toBe(true);
+    expect(lines[1]).toMatch(/— 4 unread$/);
   });
 
   it('names an untitled chat and treats a missing count as nothing unread', async () => {

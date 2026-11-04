@@ -5,10 +5,11 @@ import {
   confirmTokenParam,
   confirmWrite,
   CONFIRM_FLOW_SENTENCE,
+  UNTRUSTED_CONTENT_RULE,
   UNTRUSTED_DESCRIPTION_SUFFIX,
   minifiedResult,
-  rawTextResult,
   toolAnnotations,
+  untrustedEnvelope,
   untrustedResult,
 } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
@@ -29,17 +30,42 @@ function flat(v: unknown): string | undefined {
   return typeof v === 'string' && v.trim() !== '' ? v.replace(/\s+/g, ' ').trim() : undefined;
 }
 
+/** The shortest a title is cut to before the tail gives way too. */
+const TITLE_FLOOR = 24;
+
+const cut = (s: string, n: number): string => (s.length > n ? `${s.slice(0, Math.max(n - 1, 0))}…` : s);
+
 /**
  * One chat with unread messages as one line, `title — <ISO date | no date> —
- * N unread`, at most 120 characters (the title is shortened). The date is the
- * stream's `updatedAt`, as Remind reports it.
+ * N unread`, cut to at most 120 characters as a WHOLE, title first: the title
+ * shortens until the line fits, and only if the tail alone would still
+ * overflow once the title is at its floor is the tail cut as well. The date is
+ * the stream's `updatedAt`, as Remind reports it. A title starting with `-- `
+ * (a note's prefix) or `\` is escaped with one leading `\`, which the host
+ * strips after its note check, so a chat title can never read as a note.
  */
 export function briefChatLine(chat: ChatStreamRow): string {
-  const title = flat(chat.properTitle) ?? flat(chat.title) ?? '(untitled)';
+  const raw = flat(chat.properTitle) ?? flat(chat.title) ?? '(untitled)';
+  const title = raw.startsWith('-- ') || raw.startsWith('\\') ? `\\${raw}` : raw;
   const tail = ` — ${flat(chat.updatedAt) ?? 'no date'} — ${chat.unreadMessagesCount ?? 0} unread`;
-  const room = BRIEF_MAX - tail.length;
-  const shown = title.length > room ? `${title.slice(0, Math.max(room - 1, 0))}…` : title;
-  return `${shown}${tail}`;
+  if (title.length + tail.length <= BRIEF_MAX) return `${title}${tail}`;
+  const shown = cut(title, Math.max(BRIEF_MAX - tail.length, Math.min(title.length, TITLE_FLOOR)));
+  return `${shown}${cut(tail, BRIEF_MAX - shown.length)}`;
+}
+
+/** Who wrote the brief lines' text, for the untrusted envelope's note. */
+const BRIEF_NOTE =
+  `Chat titles and participant names are written by teachers, schools and other Remind members, not the user. ${UNTRUSTED_CONTENT_RULE}`;
+
+/**
+ * The brief answer: the lines (or the single note `-- none`) inside the
+ * fleet's untrusted-data envelope as `data: string[]`, minified, note first —
+ * chat titles are third-party text, exactly like the full rung's payload.
+ */
+export function briefChatsResult(chats: ChatStreamRow[]): ReturnType<typeof minifiedResult> {
+  const unread = chats.filter((c) => (c.unreadMessagesCount ?? 0) > 0);
+  const lines = unread.length === 0 ? ['-- none'] : unread.map(briefChatLine);
+  return minifiedResult(untrustedEnvelope(lines, { note: BRIEF_NOTE }));
 }
 
 interface PutMessageResult {
@@ -114,7 +140,8 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
           .optional()
           .describe(
             '"full" (default) returns the chat streams; "brief" returns one line per chat WITH unread messages ' +
-              '(nothing when none): title — <last updated, ISO, or "no date"> — <N> unread.',
+              '(the note "-- none" when none): title — <last updated, ISO, or "no date"> — <N> unread, ' +
+              'inside the untrusted-data envelope as data: string[].',
           ),
       }),
     },
@@ -124,10 +151,7 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
         groupId: class_id ?? null,
         chatQuery: query ?? null,
       });
-      if (view === 'brief') {
-        const unread = (data.chatStreams ?? []).filter((c) => (c.unreadMessagesCount ?? 0) > 0);
-        return rawTextResult(unread.map(briefChatLine).join('\n'));
-      }
+      if (view === 'brief') return briefChatsResult(data.chatStreams ?? []);
       return untrustedResult(data);
     },
   );
