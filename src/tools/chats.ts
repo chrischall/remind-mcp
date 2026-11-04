@@ -7,12 +7,40 @@ import {
   CONFIRM_FLOW_SENTENCE,
   UNTRUSTED_DESCRIPTION_SUFFIX,
   minifiedResult,
+  rawTextResult,
   toolAnnotations,
   untrustedResult,
 } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
 import { CHAT_MESSAGES, CHAT_STREAMS, CLASSES, PUT_MESSAGE } from '../queries.js';
 import { signedInAccount } from './account.js';
+import { schoolMeta } from './hints.js';
+
+const BRIEF_MAX = 120;
+
+interface ChatStreamRow {
+  title?: string | null;
+  properTitle?: string | null;
+  unreadMessagesCount?: number | null;
+  updatedAt?: string | null;
+}
+
+function flat(v: unknown): string | undefined {
+  return typeof v === 'string' && v.trim() !== '' ? v.replace(/\s+/g, ' ').trim() : undefined;
+}
+
+/**
+ * One chat with unread messages as one line, `title — <ISO date | no date> —
+ * N unread`, at most 120 characters (the title is shortened). The date is the
+ * stream's `updatedAt`, as Remind reports it.
+ */
+export function briefChatLine(chat: ChatStreamRow): string {
+  const title = flat(chat.properTitle) ?? flat(chat.title) ?? '(untitled)';
+  const tail = ` — ${flat(chat.updatedAt) ?? 'no date'} — ${chat.unreadMessagesCount ?? 0} unread`;
+  const room = BRIEF_MAX - tail.length;
+  const shown = title.length > room ? `${title.slice(0, Math.max(room - 1, 0))}…` : title;
+  return `${shown}${tail}`;
+}
 
 interface PutMessageResult {
   putMessage: {
@@ -73,20 +101,35 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
         'per-stream permissions (notably `canSend`). Filter to specific uuids, a class, or a search string. ' +
         UNTRUSTED_DESCRIPTION_SUFFIX,
       annotations: toolAnnotations({ title: 'Remind list chats', readOnly: true, idempotent: true, openWorld: true }),
+      _meta: schoolMeta('whats-new', {
+        canonical: true,
+        aliases: ['remind', 'teacher', 'messages', 'unread', 'school', 'coach', 'texts'],
+      }),
       inputSchema: z.object({
         uuids: z.array(z.string()).optional().describe('Restrict to these chat stream uuids.'),
         class_id: z.number().int().optional().describe('Numeric class id to scope chats to.'),
         query: z.string().optional().describe('Search chats by participant/title.'),
+        view: z
+          .enum(['full', 'brief'])
+          .optional()
+          .describe(
+            '"full" (default) returns the chat streams; "brief" returns one line per chat WITH unread messages ' +
+              '(nothing when none): title — <last updated, ISO, or "no date"> — <N> unread.',
+          ),
       }),
     },
-    async ({ uuids, class_id, query }) =>
-      untrustedResult(
-        await client.graphql(CHAT_STREAMS, {
-          chatUuids: uuids ?? null,
-          groupId: class_id ?? null,
-          chatQuery: query ?? null,
-        }),
-      ),
+    async ({ uuids, class_id, query, view }) => {
+      const data = await client.graphql<{ chatStreams?: ChatStreamRow[] | null }>(CHAT_STREAMS, {
+        chatUuids: uuids ?? null,
+        groupId: class_id ?? null,
+        chatQuery: query ?? null,
+      });
+      if (view === 'brief') {
+        const unread = (data.chatStreams ?? []).filter((c) => (c.unreadMessagesCount ?? 0) > 0);
+        return rawTextResult(unread.map(briefChatLine).join('\n'));
+      }
+      return untrustedResult(data);
+    },
   );
 
   server.registerTool(
@@ -98,6 +141,7 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
         'GapItem (a paging gap of `size` unloaded messages). ' +
         UNTRUSTED_DESCRIPTION_SUFFIX,
       annotations: toolAnnotations({ title: 'Remind get messages', readOnly: true, idempotent: true, openWorld: true }),
+      _meta: schoolMeta('lookup', { aliases: ['messages', 'what the teacher said', 'chat'] }),
       inputSchema: z.object({
         uuids: z.array(z.string()).min(1).describe('Chat stream uuids, from remind_list_chats.'),
         limit: z.number().int().min(1).max(200).default(25).describe('Max non-gap messages per stream.'),
@@ -115,6 +159,7 @@ export function registerChatTools(server: McpServer, client: RemindClient): void
         CONFIRM_FLOW_SENTENCE + ' ' +
         'Check `permissions.canSend` on the target first (remind_list_chats).',
       annotations: toolAnnotations({ title: 'Remind send message', readOnly: false, destructive: true, openWorld: true }),
+      _meta: schoolMeta('send', { aliases: ['message the teacher', 'text the class', 'reply', 'remind'] }),
       inputSchema: z.object({
         recipient_uuid: z.string().describe('Chat stream uuid, or class uuid.'),
         recipient_type: z

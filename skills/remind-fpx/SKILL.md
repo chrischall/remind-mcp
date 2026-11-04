@@ -89,3 +89,23 @@ Ready-to-run documents with `jq` recipes are in **`references/graphql-queries.md
 - Check `permissions.canSend` before trying to send; most fields on a subscriber account are read-only.
 - **Writes deliver to real people and cannot be unsent.** This skill is read-oriented on purpose;
   the mutation shapes live in the references file, clearly marked.
+
+## In context groups
+
+When remind-mcp is hosted on mcp-host, its tools join the **school** context group
+(`_meta.mint` hints on each tool; the healthcheck joins none).
+
+- **Canonical read:** `remind_list_chats` answers *what's new* — `view: "brief"` gives one
+  line per chat with unread messages, `title — <last updated> — N unread`, and nothing when
+  everything is read. It takes no subject (one signed-in account, no children to choose
+  between) and no date range.
+- Everything else is a `lookup` (account, classes, messages, notification settings), a
+  `send` (`remind_send_message`, still confirm-gated), a `turn-on-off`
+  (`remind_set_notification_devices`) or `other` (`remind_graphql`). Nothing here answers
+  *what's due* or *what's on*.
+- A compound ask reaches it through the group: "anything new from school… and anything due?"
+  asks this read beside the group's other members (Canvas, Infinite Campus) and merges the
+  answers.
+- The first session is captured through the browser bridge, so until a Remind tab has been
+  paired the group answers **"Remind needs your browser open"** for this source rather than
+  an empty result.
