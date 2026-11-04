@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.9...remind-mcp-v1.3.0) (2026-11-04)
+
+
+### Features
+
+* context-group hints, a brief view on the chat list ([#122](https://github.com/chrischall/remind-mcp/issues/122)) ([658e32c](https://github.com/chrischall/remind-mcp/commit/658e32ce52dfce154bf2c91b6f2a3bd415a26d10))
+
+
+### Bug Fixes
+
+* **deps:** Bump @fetchproxy/server from 3.6.2 to 3.6.3 in the production-dependencies group ([#120](https://github.com/chrischall/remind-mcp/issues/120)) ([080c4df](https://github.com/chrischall/remind-mcp/commit/080c4df21efe5f7436659569830ab4bd59d89784))
+
 ## [1.2.9](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.2.8...remind-mcp-v1.2.9) (2026-10-29)
 
 
