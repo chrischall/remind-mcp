@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/server';
 import { UNTRUSTED_DESCRIPTION_SUFFIX, toolAnnotations, untrustedResult } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
+import { schoolMeta } from './hints.js';
 import { CLASSES, NAVIGATION_LIST } from '../queries.js';
 
 export function registerClassTools(server: McpServer, client: RemindClient): void {
@@ -14,6 +15,7 @@ export function registerClassTools(server: McpServer, client: RemindClient): voi
         'Optionally filter with a search query, and page with the returned cursor. ' +
         UNTRUSTED_DESCRIPTION_SUFFIX,
       annotations: toolAnnotations({ title: 'Remind list classes & chats', readOnly: true, idempotent: true, openWorld: true }),
+      _meta: schoolMeta('lookup', { aliases: ['classes', 'teachers', 'remind'] }),
       inputSchema: z.object({
         query: z.string().optional().describe('Filter by name.'),
         cursor: z.string().optional().describe('`cursor` from a previous call, to page.'),
@@ -31,6 +33,7 @@ export function registerClassTools(server: McpServer, client: RemindClient): voi
         'owner count, history and messaging flags, and what this account may edit. ' +
         UNTRUSTED_DESCRIPTION_SUFFIX,
       annotations: toolAnnotations({ title: 'Remind get classes', readOnly: true, idempotent: true, openWorld: true }),
+      _meta: schoolMeta('lookup', { aliases: ['class', 'join code'] }),
       inputSchema: z.object({
         uuids: z.array(z.string()).min(1).describe('Class uuids, from remind_list_entities.'),
       }),

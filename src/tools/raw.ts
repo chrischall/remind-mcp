@@ -12,6 +12,7 @@ import { graphqlOperationKinds, isReadOnlyGraphqlDocument } from '@chrischall/mc
 import { RemindUnauthorizedError, type RemindClient } from '../client.js';
 import { REMIND_HOST, sessionFromEnv } from '../session.js';
 import { ME } from '../queries.js';
+import { schoolMeta } from './hints.js';
 
 /**
  * Mutations must go through the typed write tools, which preview the change and
@@ -48,6 +49,7 @@ export function registerRawTools(server: McpServer, client: RemindClient): void 
         'Note: Remind reports an unknown field as a 500-backed GRAPHQL_VALIDATION_FAILED, not a field error. ' +
         UNTRUSTED_DESCRIPTION_SUFFIX,
       annotations: toolAnnotations({ title: 'Remind raw GraphQL', readOnly: true, openWorld: true }),
+      _meta: schoolMeta('other'),
       inputSchema: z.object({
         query: z.string().min(1).describe('A GraphQL query document.'),
         variables: z.record(z.string(), z.unknown()).optional().describe('Variables for the document.'),

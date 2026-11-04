@@ -9,6 +9,7 @@ import {
   toolAnnotations,
 } from '@chrischall/mcp-utils';
 import type { RemindClient } from '../client.js';
+import { schoolMeta } from './hints.js';
 import { ME, ME_PROBE, NOTIFICATION_SETTINGS, UPDATE_NOTIFICATIONS } from '../queries.js';
 
 /**
@@ -35,6 +36,7 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
       description:
         'Get the signed-in Remind account: uuid, name, email, locale, admin/child flags and sign-in count.',
       annotations: toolAnnotations({ title: 'Remind account', readOnly: true, idempotent: true, openWorld: true }),
+      _meta: schoolMeta('lookup'),
       inputSchema: z.object({}),
     },
     async () => minifiedResult(await client.graphql(ME)),
@@ -48,6 +50,7 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
         'delivery device (email, sms, apns) with its enabled state. The `canManage*` flags say which ' +
         'preferences this account is actually allowed to change — a subscriber account cannot change most.',
       annotations: toolAnnotations({ title: 'Remind notification settings', readOnly: true, idempotent: true, openWorld: true }),
+      _meta: schoolMeta('lookup', { aliases: ['notifications', 'alerts', 'remind settings'] }),
       inputSchema: z.object({}),
     },
     async () => minifiedResult(await client.graphql(NOTIFICATION_SETTINGS)),
@@ -61,6 +64,7 @@ export function registerAccountTools(server: McpServer, client: RemindClient): v
         'Nothing is sent until confirmed; the preview shows the exact mutation input. ' +
         CONFIRM_FLOW_SENTENCE,
       annotations: toolAnnotations({ title: 'Remind set notification devices', readOnly: false, destructive: false, openWorld: true }),
+      _meta: schoolMeta('turn-on-off', { aliases: ['notifications', 'alerts', 'texts', 'emails', 'remind'] }),
       inputSchema: z.object({
         enable: z.array(z.number().int()).optional().describe('Device ids to enable.'),
         disable: z.array(z.number().int()).optional().describe('Device ids to disable.'),
