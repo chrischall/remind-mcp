@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.2](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.3.1...remind-mcp-v1.3.2) (2026-11-13)
+
+
+### Bug Fixes
+
+* **deps:** Bump the production-dependencies group with 2 updates ([#128](https://github.com/chrischall/remind-mcp/issues/128)) ([9bd4c94](https://github.com/chrischall/remind-mcp/commit/9bd4c94db7ae66610ee21029928d0b71f1087c6c))
+
 ## [1.3.1](https://github.com/chrischall/remind-mcp/compare/remind-mcp-v1.3.0...remind-mcp-v1.3.1) (2026-11-04)
 
 
